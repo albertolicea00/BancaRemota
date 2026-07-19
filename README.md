@@ -7,6 +7,7 @@
 ![Xcode](https://img.shields.io/badge/Xcode-15%2B-blue?logo=xcode&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
+[![USSD sync](https://github.com/albertolicea00/BancaRemota/actions/workflows/ussd-sync-check.yml/badge.svg)](https://github.com/albertolicea00/BancaRemota/actions/workflows/ussd-sync-check.yml)
 
 > Created to revive the original BancaRemota app after it disappeared.
 > Special credit to **Henry Cruz**, creator of the original version.
