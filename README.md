@@ -90,6 +90,12 @@ open BancaRemota.xcodeproj
 
 ---
 
+## 🔄 Code source of truth
+
+The USSD operations in [`BancaRemota/codes.json`](BancaRemota/codes.json) mirror the canonical [`cuba-banks`](https://github.com/albertolicea00/MyUSSDCodes-collection/blob/main/codes/cuba-banks.json) collection in **[MyUSSDCodes-collection](https://github.com/albertolicea00/MyUSSDCodes-collection)** — the single source of truth for USSD codes across all my apps.
+
+A weekly GitHub Action ([`ussd-sync-check`](.github/workflows/ussd-sync-check.yml)) compares the dial strings shipped here against that collection. It matches by **dial-string set**, so this app's bank grouping, favorites and Spanish labels stay exactly as they are — only the codes themselves are policed. On drift the run fails and opens a `ussd-sync` issue. **Fix codes upstream in MyUSSDCodes-collection first, then sync this file to match.**
+
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
