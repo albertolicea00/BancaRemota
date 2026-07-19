@@ -26,7 +26,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      REPORT_FILE: ${{ runner.temp }}/ussd-sync-report.md
+      REPORT_FILE: ussd-sync-report.md
     steps:
       - uses: actions/checkout@v4
 
