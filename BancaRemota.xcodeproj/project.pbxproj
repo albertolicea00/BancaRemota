@@ -300,6 +300,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Banca Remota";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Tu rostro es necesario para desbloquear BancaRemota.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Tus contactos se usan solo para elegir un n\U00famero al recargar el m\U00f3vil. Nunca salen del dispositivo.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -338,6 +339,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Banca Remota";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Tu rostro es necesario para desbloquear BancaRemota.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Tus contactos se usan solo para elegir un n\U00famero al recargar el m\U00f3vil. Nunca salen del dispositivo.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

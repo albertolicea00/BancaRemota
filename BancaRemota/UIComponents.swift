@@ -199,13 +199,44 @@ struct BankSelectionCard: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(bank.textColor)
             }
-            .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(bank.themeColor)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 3)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Toast Banner
+struct ToastBannerView: View {
+    @ObservedObject private var toastCenter = ToastCenter.shared
+
+    var body: some View {
+        VStack {
+            if let toast = toastCenter.current {
+                HStack(spacing: 10) {
+                    Image(systemName: toast.iconName)
+                        .font(.system(size: 16, weight: .bold))
+                    Text(toast.message)
+                        .font(.system(size: 14, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundColor(toast.isWarning ? .orange : .appPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(14)
+                .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 4)
+                .padding(.horizontal)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            Spacer()
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: toastCenter.current)
+        .allowsHitTesting(false)
     }
 }
 
@@ -246,6 +277,8 @@ struct DataCard: View {
     let subtitle: String?
     let value: String
     let iconName: String
+    /// Asset-catalog image used instead of the SF Symbol (e.g. a bank icon). Falls back to `iconName`.
+    var assetIconName: String? = nil
     let backgroundColor: Color
     var onEdit: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
@@ -305,10 +338,19 @@ struct DataCard: View {
                     Circle()
                         .fill(backgroundColor.opacity(0.15))
                         .frame(width: 50, height: 50)
-                    
-                    Image(systemName: iconName)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(backgroundColor)
+
+                    if let assetIconName = assetIconName {
+                        Image(assetIconName)
+                            .resizable()
+                            .renderingMode(.template)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                            .foregroundColor(backgroundColor)
+                    } else {
+                        Image(systemName: iconName)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(backgroundColor)
+                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -361,9 +403,9 @@ struct DataCard: View {
             .padding()
             .background(Color(UIColor.secondarySystemBackground))
             .cornerRadius(16)
-            // .offset(x: isSwiped ? -130 : (userData.activeSwipeID == id ? offset : 0)) // COMENTADO: Desplazamiento de la tarjeta
+            // .offset(x: isSwiped ? -130 : (userData.activeSwipeID == id ? offset : 0)) // DISABLED: card offset
             .contentShape(Rectangle())
-            /* // COMENTADO: Gesto de arrastre
+            /* // DISABLED: drag gesture
             .gesture(
                 DragGesture()
                     .onChanged { value in

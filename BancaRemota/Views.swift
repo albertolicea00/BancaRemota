@@ -16,6 +16,7 @@ struct MainView: View {
     @AppStorage("selectedBankID") private var selectedBankID: String = ""
     @State private var isMenuOpen = false
     @AppStorage("activeScreen") private var activeScreen: ActiveScreen = .home
+    @ObservedObject private var operationRunner = OperationRunner.shared
     
     private var selectedBank: Bank? {
         config?.banks.first { $0.id == selectedBankID }
@@ -120,6 +121,12 @@ struct MainView: View {
                 .transition(.move(edge: .leading))
             }
         }
+        // Prefill picker for operations that need a saved value. Swiping it away cancels the operation.
+        .sheet(item: $operationRunner.pendingSelection) { request in
+            PrefillSelectionView(request: request) { option in
+                operationRunner.completeSelection(option)
+            }
+        }
     }
 }
 
@@ -215,21 +222,39 @@ struct BankSelectionView: View {
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
                             
-                            ScrollView(.horizontal, showsIndicators: false) {
+                            if banks.count <= 3 {
                                 HStack(spacing: 15) {
                                     ForEach(banks) { bank in
                                         BankSelectionCard(bank: bank) {
                                             if useBanksAsLogin,
                                                let authOp = bank.categories.flatMap({ $0.operations }).first(where: { $0.isLogin == true }) {
-                                                CallService.shared.executeUSSD(code: authOp.ussdCode)
+                                                OperationRunner.shared.run(authOp, bankId: bank.id)
                                             } else {
                                                 onSelectBank(bank)
                                             }
                                         }
-                                        .frame(width: 100)
+                                        .frame(maxWidth: .infinity)
+                                        .aspectRatio(1, contentMode: .fit)
                                     }
                                 }
                                 .padding(.horizontal)
+                            } else {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 15) {
+                                        ForEach(banks) { bank in
+                                            BankSelectionCard(bank: bank) {
+                                                if useBanksAsLogin,
+                                                   let authOp = bank.categories.flatMap({ $0.operations }).first(where: { $0.isLogin == true }) {
+                                                    OperationRunner.shared.run(authOp, bankId: bank.id)
+                                                } else {
+                                                    onSelectBank(bank)
+                                                }
+                                            }
+                                            .frame(width: 100)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                }
                             }
                         }
                         .padding(.top, 20)
@@ -248,7 +273,7 @@ struct BankSelectionView: View {
                                         let theme = Color.appPrimary
                                         let textColor = Color.white
                                         OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor) {
-                                            CallService.shared.executeUSSD(code: fav.operation.ussdCode)
+                                            OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
                                         }
                                         .onDrag {
                                             self.draggedItem = fav
@@ -338,8 +363,8 @@ struct OperationsListView: View {
                                 VStack(spacing: 12) {
                                     ForEach(category.operations) { operation in
                                         OperationCard(operation: operation, themeColor: bank.themeColor, textColor: bank.textColor) {
-                                            // Execute USSD trigger
-                                            CallService.shared.executeUSSD(code: operation.ussdCode)
+                                            // Prepare whatever the USSD will ask for (if any), then dial
+                                            OperationRunner.shared.run(operation, bankId: bank.id)
                                         }
                                     }
                                 }
@@ -528,9 +553,21 @@ struct HelpView: View {
                                 Label("Tú controlas tus archivos de respaldo", systemImage: "archivebox")
                                 Label("Sin publicidad ni rastreo", systemImage: "eye.slash")
                                 Label("Acceso protegido por Face ID / Touch ID", systemImage: "faceid")
+                                Label("Lo copiado caduca a los 2 minutos y no sale del dispositivo", systemImage: "doc.on.clipboard")
+                                Label("Tus contactos se leen solo al recargar un móvil", systemImage: "person.crop.circle")
                             }
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+
+                            Text("Al recargar un móvil, la app pide permiso para leer tus contactos y así mostrártelos dentro de la propia app en vez de abrir la agenda del sistema. Se leen en ese momento y nada más: no se guardan, no se copian a ningún archivo y no se envían a ningún sitio. Puedes desactivarlo en Configuración o denegar el permiso desde Ajustes de iOS.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .padding(.top, 4)
+
+                            Text("Cuando la app copia una clave, una tarjeta o un número al portapapeles, lo hace de forma que no se sincronice con tus otros dispositivos y iOS lo borra solo a los 2 minutos.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .padding(.top, 4)
 
                             Text("Tus datos están protegidos localmente por iOS. Si habilitas la sincronización con iCloud, la app cifra tu información con tu contraseña personal de forma que solo tú (y nadie más, ni siquiera Apple) pueda ver tus datos.")
                                 .font(.caption)
@@ -640,6 +677,10 @@ struct TutorialView: View {
 
                     HelpSection(title: "Primera vez: Sesión", content: "Antes de consultar saldo o hacer transferencias, debes autenticarte en el banco. Busca la categoría 'Sesión' o 'Inicio de sesión' dentro de tu banco y ejecuta esa operación primero. Cada banco puede requerir tu número de tarjeta o móvil durante el proceso USSD.")
 
+                    HelpSection(title: "Copiado automático para el USSD", content: "Muchas operaciones te piden un dato a mitad del proceso: la clave del banco, un número de tarjeta, de factura o de móvil. La app te lo deja copiado en el portapapeles justo antes de abrir el marcador, para que solo tengas que pegarlo cuando el menú USSD lo pida.\n\n• Autenticarse: copia sola la clave de ese banco (ver 'Mis Claves').\n• Transferencia: te lista tus tarjetas guardadas.\n• Electricidad, teléfono, agua y gas: te lista tus cuentas de servicio de ese tipo.\n• Recargar Nauta: te lista tus cuentas Nauta guardadas.\n• Recargar móvil: te lista tus contactos, con buscador, dentro de la propia app.\n\nEn los listados siempre está la opción 'Ninguno, solo marcar' por si prefieres escribir el dato a mano. Lo que se copia no viaja a tus otros dispositivos y se borra solo a los 2 minutos.")
+
+                    HelpSection(title: "Ajustar el copiado", content: "Cada uno de estos comportamientos se configura por separado en Configuración, con tres opciones: copiar y avisar, copiar sin aviso, o desactivarlo. En los que muestran un listado, desactivarlo significa que la app marca directamente sin preguntarte nada.\n\nSi no tienes nada guardado de ese tipo, la app no te muestra un listado vacío: simplemente marca.")
+
                     HelpSection(title: "Favoritos", content: "Desde Inicio puedes agregar operaciones frecuentes a Favoritos para acceder a ellas sin navegar por el banco. Mantén pulsado y arrastra para reordenarlas. Puedes personalizar el color de las tarjetas favoritas desde Configuración.")
 
                     HelpSection(title: "Gestión de Tarjetas", content: "En 'Cuentas de Banco' puedes guardar los datos de tus tarjetas (número, titular, móvil asociado). Los números se muestran enmascarados pero puedes copiarlos al portapapeles. Toca una tarjeta para ver todos los detalles.")
@@ -648,7 +689,7 @@ struct TutorialView: View {
 
                     HelpSection(title: "Facturas de Servicios", content: "En 'Cuentas de Servicios' puedes guardar los números de contrato de electricidad, agua, gas y teléfono. Cópialos fácilmente cuando los necesites para una operación USSD de pago.")
 
-                    HelpSection(title: "Mis Claves", content: "Guarda PINs, contraseñas y claves de forma local. Esta sección solo está disponible si tienes activada la autenticación biométrica en Configuración, como medida de seguridad adicional.")
+                    HelpSection(title: "Mis Claves", content: "Guarda PINs, contraseñas y claves de forma local. Esta sección solo está disponible si tienes activada la autenticación biométrica en Configuración, como medida de seguridad adicional.\n\nHay tres categorías especiales — PIN BPA, PIN BANDEC y PIN BM — de las que solo puedes guardar una clave de cada una. Son las que la app copia sola al ejecutar 'Autenticarse' en ese banco. Llevan etiqueta fija y su icono es el del banco. Si el PIN no parece correcto (4 dígitos en BPA y BM, 5 en BANDEC, solo números) verás un aviso, pero puedes guardarlo igual.")
 
                     HelpSection(title: "Autenticación", content: "Desde Configuración puedes activar Face ID / Touch ID para proteger la entrada a la app. También puedes ajustar el tiempo de expiración de sesión (desde inmediato hasta 15 minutos).")
                     
@@ -690,7 +731,12 @@ struct ConfigView: View {
     
     @AppStorage("useCustomFavoriteColor") private var useCustomFavoriteColor = true
     @AppStorage("favoriteCustomColorHex") private var favoriteCustomColorHex = "B38B4D"
-    
+    @AppStorage("authKeyCopyMode") private var authKeyCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("billCopyMode") private var billCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("nautaCopyMode") private var nautaCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("cardCopyMode") private var cardCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("contactCopyMode") private var contactCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+
     @State private var pendingAuthEnabled: Bool = false
     @State private var selectedFavoriteColor: Color = .appPrimary
     
@@ -751,6 +797,46 @@ struct ConfigView: View {
                     //     .disabled(!showBanksInFavorites)
                 }
                 
+                Section(header: Text("Autenticación en el banco"), footer: Text("Al ejecutar una operación de autenticación, la app copia al portapapeles la clave especial de ese banco (categorías «PIN BPA», «PIN BANDEC» y «PIN BM» en Mis Claves) para que la pegues cuando el USSD la pida. La copia se borra sola a los 2 minutos y no se sincroniza con otros dispositivos.")) {
+                    Picker("Clave al autenticarse", selection: $authKeyCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.directLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Pago de facturas"), footer: Text("Al pagar electricidad, teléfono, agua o gas, la app lista tus cuentas de servicio guardadas de ese tipo para copiar el número al portapapeles antes de marcar. Siempre puedes elegir «Ninguno» y marcar sin copiar.")) {
+                    Picker("Cuentas guardadas", selection: $billCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Recarga Nauta"), footer: Text("Al recargar Nauta, la app lista tus cuentas Nauta guardadas para copiar el usuario al portapapeles antes de marcar.")) {
+                    Picker("Cuentas guardadas", selection: $nautaCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Transferencias"), footer: Text("Al transferir, la app lista tus tarjetas guardadas para copiar el número al portapapeles antes de marcar.")) {
+                    Picker("Tarjetas guardadas", selection: $cardCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Recarga de móvil"), footer: Text("Al recargar un móvil, la app lista tus contactos dentro de la propia app, con buscador, para copiar el número antes de marcar. Requiere permiso de Contactos; se leen solo en ese momento, no se guardan ni se envían a ningún sitio.")) {
+                    Picker("Contactos del teléfono", selection: $contactCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
                 Section(header: Text("Seguridad y Autenticación"), footer: Text("Protege el acceso a la aplicación usando la seguridad nativa de tu dispositivo (Face ID, Touch ID o Código).")) {
                     Toggle("Requerir Autenticación", isOn: $pendingAuthEnabled)
                     
@@ -1435,7 +1521,7 @@ struct KeysListView: View {
                     Spacer()
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(.purple.opacity(0.4))
+                        .foregroundColor(.appPrimary)
                     Text("Sección protegida")
                         .font(.title3)
                         .fontWeight(.bold)
@@ -1463,13 +1549,16 @@ struct KeysListView: View {
                                 .foregroundColor(.secondary)) {
 
                                 ForEach(grouped[groupName] ?? []) { key in
+                                    // Special keys wear their bank's icon and colour instead of the global accent.
+                                    let bank = key.category.bankId.flatMap { DataService.shared.bank(id: $0) }
                                     DataCard(
                                         id: key.id,
                                         title: key.label,
-                                        subtitle: key.category == .other ? (key.customCategory ?? "Otros") : key.category.rawValue,
+                                        subtitle: key.category == .other ? (key.customCategory ?? "Otros") : key.category.displayName,
                                         value: key.value,
                                         iconName: key.category.iconName,
-                                        backgroundColor: .appPrimary,
+                                        assetIconName: bank?.iconImg,
+                                        backgroundColor: bank?.themeColor ?? .appPrimary,
                                         onEdit: { keyToEdit = key },
                                         onDelete: {
                                             keyToDelete = key
@@ -1514,6 +1603,125 @@ struct KeysListView: View {
             }
         } message: {
             Text("Esta acción no se puede deshacer.")
+        }
+    }
+}
+
+// MARK: - Prefill Selection Sheet (pick a saved value, then dial)
+struct PrefillSelectionView: View {
+    let request: PrefillSelectionRequest
+    let onSelect: (PrefillOption?) -> Void
+
+    @State private var searchText = ""
+
+    private var visibleOptions: [PrefillOption] {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return request.options }
+
+        return request.options.filter {
+            $0.label.localizedCaseInsensitiveContains(query) || $0.value.contains(query)
+        }
+    }
+
+    /// Searchable lists (contacts) put it first, right under the search field, so it stays reachable without scrolling the whole address book. Short lists keep it at the bottom.
+    private var noneSection: some View {
+        Section {
+            Button(action: { onSelect(nil) }) {
+                HStack {
+                    Image(systemName: "xmark.circle")
+                    Text("Ninguno, solo marcar")
+                }
+                .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            List {
+                if request.isSearchable {
+                    noneSection
+                }
+
+                Section(header: Text("Toca para copiar al portapapeles"), footer: Text("Queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
+                    ForEach(visibleOptions) { option in
+                        Button(action: { onSelect(option) }) {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.appPrimary.opacity(0.15))
+                                        .frame(width: 42, height: 42)
+                                    Image(systemName: option.iconName)
+                                        .font(.system(size: 17, weight: .bold))
+                                        .foregroundColor(.appPrimary)
+                                }
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(option.label)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text(option.value)
+                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                        .foregroundColor(.appPrimary)
+                                    if !option.detail.isEmpty {
+                                        Text(option.detail)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "doc.on.clipboard")
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                if visibleOptions.isEmpty {
+                    Text("Sin resultados para «\(searchText)»")
+                        .foregroundColor(.secondary)
+                }
+
+                if !request.isSearchable {
+                    noneSection
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle(request.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .modifier(SearchFieldIfNeeded(isSearchable: request.isSearchable, text: $searchText))
+        }
+        .modifier(PrefillSheetHeight(startsExpanded: request.isSearchable))
+    }
+}
+
+/// `.searchable` only when the list is long enough to justify it (the address book).
+private struct SearchFieldIfNeeded: ViewModifier {
+    let isSearchable: Bool
+    @Binding var text: String
+
+    func body(content: Content) -> some View {
+        if isSearchable {
+            content.searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: "Buscar contacto")
+        } else {
+            content
+        }
+    }
+}
+
+/// Half-height sheet the user can drag up to full screen. Contacts start expanded because
+/// the search field plus a long list needs the room. iOS 15 has no detents API: full sheet there.
+private struct PrefillSheetHeight: ViewModifier {
+    let startsExpanded: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.presentationDetents(startsExpanded ? [.large] : [.medium, .large])
+        } else {
+            content
         }
     }
 }
@@ -1720,24 +1928,77 @@ struct AddKeyView: View {
     @State private var category: KeyCategory = .bank
     @State private var customCategory = ""
     @State private var group = ""
-    
+
+    @ObservedObject private var userData = UserDataManager.shared
+
+    /// Special categories hold a single key: hide the ones already taken by another key.
+    private var availableCategories: [KeyCategory] {
+        KeyCategory.allCases.filter { userData.canUseSpecialCategory($0, excluding: keyToEdit?.id) }
+    }
+
+    private var isCategoryAvailable: Bool {
+        userData.canUseSpecialCategory(category, excluding: keyToEdit?.id)
+    }
+
+    /// Advisory only — never blocks saving.
+    private var valueWarning: String? {
+        category.warning(forValue: value)
+    }
+
+    /// Special categories own their label: it is fixed, not editable, and always wins over `label`.
+    private var effectiveLabel: String {
+        category.defaultLabel ?? label
+    }
+
+    /// onAppear assigns `category`, which would fire the auto-label onChange and clobber
+    /// the label of the key being edited. Skip that first programmatic change.
+    @State private var didLoadInitialValues = false
+
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Detalles de la Clave")) {
-                    TextField("Etiqueta (ej: PIN BPA)", text: $label)
+                Section(header: Text("Detalles de la Clave"), footer: Text(category.isSpecial
+                    ? "Clave especial: la app la copia sola al portapapeles cuando ejecutas la operación de autenticación de ese banco. Solo puede existir una de cada tipo."
+                    : "")) {
+                    if category.isSpecial {
+                        HStack {
+                            Text("Etiqueta")
+                            Spacer()
+                            Text(effectiveLabel)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        TextField("Etiqueta (ej: PIN BPA)", text: $label)
+                    }
+
                     TextField("Clave / Contraseña", text: $value)
+                        .keyboardType(category.maxPinLength != nil ? .numberPad : .default)
+
+                    if let valueWarning = valueWarning {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(valueWarning)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    }
+
                     Picker("Categoría", selection: $category) {
-                        ForEach(KeyCategory.allCases, id: \.self) { cat in
-                            Text(cat.rawValue).tag(cat)
+                        ForEach(availableCategories, id: \.self) { cat in
+                            Text(cat.displayName).tag(cat)
                         }
                     }
-                    
+                    .onChange(of: category) { newCategory in
+                        guard didLoadInitialValues else { return }
+                        applyDefaultLabel(for: newCategory)
+                    }
+
                     if category == .other {
                         TextField("¿Qué tipo de clave es?", text: $customCategory)
                     }
                 }
-                
+
                 Section(header: Text("Organización")) {
                     TextField("Nombre del Grupo (opcional)", text: $group)
                 }
@@ -1746,7 +2007,8 @@ struct AddKeyView: View {
             .navigationBarItems(
                 leading: Button("Cancelar") { presentationMode.wrappedValue.dismiss() },
                 trailing: Button("Guardar") {
-                    let newKey = UserKey(id: keyToEdit?.id ?? UUID(), label: label, value: value, category: category, customCategory: category == .other ? customCategory : nil, group: group)
+                    guard userData.canUseSpecialCategory(category, excluding: keyToEdit?.id) else { return }
+                    let newKey = UserKey(id: keyToEdit?.id ?? UUID(), label: effectiveLabel, value: value, category: category, customCategory: category == .other ? customCategory : nil, group: group)
                     if let index = UserDataManager.shared.userKeys.firstIndex(where: { $0.id == keyToEdit?.id }) {
                         UserDataManager.shared.userKeys[index] = newKey
                     } else {
@@ -1754,7 +2016,7 @@ struct AddKeyView: View {
                     }
                     presentationMode.wrappedValue.dismiss()
                 }
-                .disabled(label.isEmpty || value.isEmpty || (category == .other && customCategory.isEmpty))
+                .disabled(effectiveLabel.isEmpty || value.isEmpty || (category == .other && customCategory.isEmpty) || !isCategoryAvailable)
             )
             .onAppear {
                 if let edit = keyToEdit {
@@ -1764,7 +2026,19 @@ struct AddKeyView: View {
                     customCategory = edit.customCategory ?? ""
                     group = edit.group
                 }
+                didLoadInitialValues = true
             }
+        }
+    }
+
+    /// A special category supplies its own fixed label through `effectiveLabel`, so nothing to fill in.
+    /// Leaving one only has to drop that fixed label so the editable field does not start out with it.
+    private func applyDefaultLabel(for newCategory: KeyCategory) {
+        guard newCategory.defaultLabel == nil else { return }
+
+        let specialLabels = KeyCategory.allCases.compactMap { $0.defaultLabel }
+        if specialLabels.contains(label) {
+            label = ""
         }
     }
 }
