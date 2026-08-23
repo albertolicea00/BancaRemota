@@ -1607,9 +1607,26 @@ struct PrefillSelectionView: View {
         }
     }
 
+    /// Searchable lists (contacts) put it first, right under the search field, so it stays reachable without scrolling the whole address book. Short lists keep it at the bottom.
+    private var noneSection: some View {
+        Section {
+            Button(action: { onSelect(nil) }) {
+                HStack {
+                    Image(systemName: "xmark.circle")
+                    Text("Ninguno, solo marcar")
+                }
+                .foregroundColor(.secondary)
+            }
+        }
+    }
+
     var body: some View {
         NavigationView {
             List {
+                if request.isSearchable {
+                    noneSection
+                }
+
                 Section(header: Text("Toca para copiar al portapapeles"), footer: Text("Queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
                     ForEach(visibleOptions) { option in
                         Button(action: { onSelect(option) }) {
@@ -1652,14 +1669,8 @@ struct PrefillSelectionView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Section {
-                    Button(action: { onSelect(nil) }) {
-                        HStack {
-                            Image(systemName: "xmark.circle")
-                            Text("Ninguno, solo marcar")
-                        }
-                        .foregroundColor(.secondary)
-                    }
+                if !request.isSearchable {
+                    noneSection
                 }
             }
             .listStyle(.insetGrouped)
