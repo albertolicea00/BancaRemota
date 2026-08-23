@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.0 · **Last commit documented:** `7ffe4e8`
+**Last updated:** 2026-08-23 · **Doc version:** 1.1 · **Last commit documented:** `2a4cb43`
 
 ---
 
@@ -29,12 +29,13 @@ It is a single-target SwiftUI app with no backend, no network calls, and no thir
   (Home/Fav.)    (per bank)             (settings)           │
         │            │                                       │
         ▼            ▼                                       ▼
-FavoritesManager   CallService              UserDataManager (CRUD + persistence)
-   (favorites)     (opens tel:// USSD URL)           │
-                                                     ├─ UserDefaults (local)
-                                                     ├─ Keychain (sync password)
-                                                     └─ NSUbiquitousKeyValueStore
-                                                        (optional, AES-GCM encrypted)
+FavoritesManager  OperationRunner               UserDataManager (CRUD + persistence)
+   (favorites)    (prefill, then CallService                  │
+                   opens tel:// USSD URL)                    │
+                                                             ├─ UserDefaults (local)
+                                                             ├─ Keychain (sync password)
+                                                             └─ NSUbiquitousKeyValueStore
+                                                                (optional, AES-GCM encrypted)
 
 
   DataService ── loads BancaRemota/codes.json (bundled, read-only) ──▶ BankConfig
@@ -50,8 +51,8 @@ There is no MVVM view-model layer in the classic sense; screens are SwiftUI `Vie
 |---|---|---|
 | `BancaRemota/BancaRemotaApp.swift` | 53 | `@main` entry point. Hosts `MainView`, overlays the biometric lock screen, applies the dark/light/system theme, and forwards `ScenePhase` changes to `AuthManager`. |
 | `BancaRemota/Models.swift` | 218 | All `Codable` data models: static config models (`Bank`, `OperationCategory`, `BankOperation`), user-data models (`NautaAccount`, `BankAccount`, `Bill`, `UserKey`), `FavoritesManager`, and the `Color(hex:)` / `toHex()` extension. |
-| `BancaRemota/Services.swift` | 414 | All singleton services: `DataService` (loads `codes.json`), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption). |
-| `BancaRemota/UIComponents.swift` | 564 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
+| `BancaRemota/Services.swift` | 522 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption). |
+| `BancaRemota/UIComponents.swift` | 595 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `ToastBannerView`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
 | `BancaRemota/Views.swift` | 1,906 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), info/help (`HelpView`, `TutorialView`), settings (`ConfigView`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, plus small shared helpers (`EmptyStateView`, `DetailRow`). |
 | `BancaRemota/codes.json` | 209 | Static, bundled dataset: 3 banks × 4 categories each, ~37 operations per bank (112 total), each with a name, description, SF Symbol icon name, USSD dial string, and optional `isLogin` / `isDefaultFavorite` flags. |
 | `BancaRemota.xcassets/banks/` | — | Per-bank image assets (`icon`, `logo`, `card`, `background`, `banner`) for `bpa`, `bandec`, `bm`, plus unused/reserved `bc` and `red` asset groups. |
@@ -101,13 +102,65 @@ Per-screen "Add/Edit" and detail flows (`AddNautaAccountView`, `AddBankAccountVi
 
 ## 5. USSD Execution Path
 
-This is the app's core function. `CallService.executeUSSD(code:)`:
+This is the app's core function, and it runs in two stages: **prefill** (make the value the USSD session will ask for available to the user) then **dial**.
+
+### 5.1 `OperationRunner` — the single entry point
+
+No view calls `CallService` directly. Every launch goes through:
+
+```swift
+OperationRunner.shared.run(operation, bankId: bank.id)
+```
+
+`OperationRunner.prefill(for:)` is the **only** place that decides what a given operation needs:
+
+```swift
+enum OperationPrefill {
+    case none
+    case authKey          // the bank's special key    -> implemented
+    case cardNumber       // BankAccount picker        -> not wired yet
+    case bill(BillType)   // Bill picker               -> not wired yet
+    case nautaAccount     // NautaAccount picker       -> not wired yet
+}
+```
+
+Today the resolver keys off the `isLogin` flag from `codes.json`. The remaining cases are declared but inert — they exist so the upcoming flows (transfer → copy a card number, electricity/water/phone → copy a bill number) plug into one place instead of being re-implemented per screen. Wiring one means: add the field to `codes.json`, map it in `prefill(for:)`, and publish a pending-selection sheet from `run(_:bankId:)` that copies the chosen value before dialing.
+
+Entry points that call the runner: `OperationCard` taps in `OperationsListView` and in the Home "Favoritos" list, plus the bank-card tap on `BankSelectionView` when `useBanksAsLogin` is enabled (runs the bank's `isLogin`-flagged operation directly instead of navigating).
+
+### 5.2 Dialing — `CallService.executeUSSD(code:)`
 
 1. Percent-encodes `#` in the dial string (`addingPercentEncoding` over `CharacterSet(charactersIn: "#").inverted`).
 2. Builds a `tel://<code>` URL.
 3. Calls `UIApplication.shared.open(url)`, which hands off to the system Phone dialer with the code pre-filled — the user still has to confirm the call manually. The app itself never places a call or parses USSD responses; from iOS's perspective this is indistinguishable from tapping a phone number link.
 
-Entry points that call this: `OperationCard` taps in `OperationsListView` and in the Home "Favoritos" list, plus the bank-card tap on `BankSelectionView` when `useBanksAsLogin` is enabled (dials the bank's `isLogin`-flagged operation directly instead of navigating).
+### 5.3 Implemented prefill: the bank authentication key
+
+`KeyCategory` carries three **special categories**, one per bank, each mapped to a `codes.json` bank id via `KeyCategory.bankId`:
+
+| Category (`rawValue`) | `bankId` |
+|---|---|
+| `BancaRemota (BPA)` | `bpa` |
+| `BancaRemota (BANDEC)` | `bandec` |
+| `BancaRemota (BM)` | `bm` |
+
+Only **one** key may exist per special category. The constraint lives in `UserDataManager.canUseSpecialCategory(_:excluding:)`; `AddKeyView` enforces it by removing already-taken categories from its picker and disabling Save, so it cannot be violated through the UI. The categories are plain `KeyCategory` cases with new `rawValue`s, so previously stored `UserKey` blobs still decode unchanged — no migration needed (see §7 on the absence of a migration mechanism generally).
+
+On an `isLogin` operation, `OperationRunner.prepareAuthKey(bankId:)` looks up that bank's special key, copies it via `ClipboardService.copySensitive`, optionally shows a toast, then dials. If no such key is stored it does nothing at all — no error, no notification, the operation still dials.
+
+Behaviour is user-controlled by `authKeyCopyMode` (`@AppStorage`, Settings → "Autenticación en el banco"):
+
+| `AuthKeyCopyMode` | Copies | Notifies |
+|---|---|---|
+| `copyAndNotify` (default, 0) | yes | yes |
+| `copyOnly` (1) | yes | no |
+| `disabled` (2) | no | no |
+
+`ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§6) can still trigger the copy even though the Keys screen refuses to render for them.
+
+### 5.4 In-app notifications
+
+`ToastCenter.shared.show(_:iconName:isWarning:duration:)` publishes a single current toast; `ToastBannerView`, mounted in `BancaRemotaApp`'s root `ZStack`, renders it above every screen with a spring transition and auto-dismiss (default 2.5s, cancelling any pending dismissal on re-show). It is deliberately **not** `UNUserNotification` — no permission prompt, but also no visibility above the system dialer, which opens within milliseconds of the toast appearing. In practice the user sees the toast on returning to the app, not before confirming the call.
 
 `ConnectionBannerView` (optional, toggled via `showNetworkStatus`) reads `CellularMonitor` to warn the user when cellular signal is absent/weak, since USSD requires voice-network reachability — a real UX affordance given the offline nature of the app, not just decoration.
 
@@ -140,7 +193,7 @@ Everything user-generated is `Codable` and stored as JSON blobs in `UserDefaults
 | Nauta accounts | `nautaAccounts` | `UserDataManager` |
 | Bank/card accounts | `bankAccounts` | `UserDataManager` |
 | Service bills | `bills` | `UserDataManager` |
-| PINs/passwords | `userKeys` | `UserDataManager` |
+| PINs/passwords (incl. the three special per-bank keys, §5.3) | `userKeys` | `UserDataManager` |
 | ~20 UI/behavior flags | various (`darkModePreference`, `authEnabled`, `useCustomFavoriteColor`, `showNetworkStatus`, etc.) | `@AppStorage` directly in views |
 
 Both managers are `ObservableObject`s whose `@Published` arrays trigger `save()` on every mutation via `didSet` — there is no explicit "Save" action anywhere in the CRUD forms; every add/edit/delete is persisted immediately and synchronously observable by any other view holding the same singleton.
@@ -186,6 +239,7 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 
 ## 11. Notable Constraints & Trade-offs (for future contributors)
 
+- **`OperationRunner` is the only sanctioned USSD entry point**: calling `CallService.executeUSSD` directly from a new screen silently skips the prefill step (§5.1), so the operation dials without the data it needs. Route new call sites through the runner.
 - **No dependency injection / testability seams**: every service is a `static let shared` singleton accessed directly from views. Unit-testing a view in isolation currently means dealing with real `UserDefaults`/`Keychain`/`CryptoKit` state, not mocks.
 - **Silent failure on decode errors**: nearly every `JSONDecoder`/`JSONEncoder` call site uses `try?`, so a corrupted `UserDefaults` blob or a malformed imported backup fails silently (empty result) rather than surfacing an error to the user, except where `importBackup` explicitly returns `false`.
 - **No data migrations**: adding/renaming/retyping a field on any `Codable` model (`BankAccount`, `UserKey`, etc.) will silently drop previously stored data for existing users unless a custom decoder is written before shipping the change.
