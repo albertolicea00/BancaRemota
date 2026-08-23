@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.1 · **Last commit documented:** `2a4cb43`
+**Last updated:** 2026-08-23 · **Doc version:** 1.2 · **Last commit documented:** ` 4f1781d`
 
 ---
 
@@ -138,11 +138,15 @@ Entry points that call the runner: `OperationCard` taps in `OperationsListView` 
 
 `KeyCategory` carries three **special categories**, one per bank, each mapped to a `codes.json` bank id via `KeyCategory.bankId`:
 
-| Category (`rawValue`) | `bankId` |
-|---|---|
-| `BancaRemota (BPA)` | `bpa` |
-| `BancaRemota (BANDEC)` | `bandec` |
-| `BancaRemota (BM)` | `bm` |
+| `rawValue` (persisted, also the default key label) | `displayName` (shown in pickers/lists) | `bankId` | `maxPinLength` |
+|---|---|---|---|
+| `BancaRemota (BPA)` | `PIN BPA` | `bpa` | 4 |
+| `BancaRemota (BANDEC)` | `PIN BANDEC` | `bandec` | 5 |
+| `BancaRemota (BM)` | `PIN BM` | `bm` | 4 |
+
+`rawValue` is the persisted `Codable` identity and must not change — it doubles as `defaultLabel`, the **fixed, non-editable** label of a special key. When a special category is selected, `AddKeyView` replaces the label `TextField` with a read-only row and saves `effectiveLabel` (`category.defaultLabel ?? label`), so a special key's label cannot diverge from its category regardless of what the field state holds. Everything user-visible reads `displayName` instead.
+
+`KeyCategory.warning(forValue:)` returns an **advisory** string when a special key's value is non-numeric or longer than `maxPinLength`. It is rendered inline under the value field in orange and never disables Save — a wrong-looking PIN is still storable, since the real lengths are the bank's business and may change.
 
 Only **one** key may exist per special category. The constraint lives in `UserDataManager.canUseSpecialCategory(_:excluding:)`; `AddKeyView` enforces it by removing already-taken categories from its picker and disabling Save, so it cannot be violated through the UI. The categories are plain `KeyCategory` cases with new `rawValue`s, so previously stored `UserKey` blobs still decode unchanged — no migration needed (see §7 on the absence of a migration mechanism generally).
 
