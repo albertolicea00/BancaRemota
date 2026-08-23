@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.2 · **Last commit documented:** ` 4f1781d`
+**Last updated:** 2026-08-23 · **Doc version:** 1.3 · **Last commit documented:** `16bad5d`
 
 ---
 
@@ -74,12 +74,15 @@ BankConfig
          └─ operations: [BankOperation]
              ├─ id, name, description, iconName, ussdCode
              ├─ isLogin: Bool?             (marks the "authenticate" op used by Home's bank cards)
-             └─ isDefaultFavorite: Bool?   (seeds FavoritesManager on first launch)
+             ├─ isDefaultFavorite: Bool?   (seeds FavoritesManager on first launch)
+             └─ prefill: String?           (saved value the USSD will ask for — see §5.1)
 ```
 
 Currently ships 3 banks — BPA (`1E5F52`), BANDEC (`5B2A1F`), BM (`81D717`) — each with 4 categories (Sesión, Consultas, Transferencias, etc.) and ~37 operations.
 
 `DataService.loadConfiguration()` reads and decodes this once, synchronously, on `MainView`'s first appearance (shown as a `ProgressView` until it resolves). There is **no schema versioning and no remote fetch** — updating USSD codes requires shipping a new app build.
+
+The `prefill` field is **app-specific metadata, not part of the upstream dataset**. The sync workflow below compares dial strings only, so it will not flag a resync that silently drops these tags — re-adding them is a manual step whenever `codes.json` is regenerated from upstream.
 
 **External sync guard**: a GitHub Actions workflow (`.github/workflows/ussd-sync-check.yml`, script `.github/scripts/check-ussd-sync.mjs`) runs weekly and on PRs touching `codes.json`. It diffs this file's *dial-string set* against the canonical `MyUSSDCodes-collection` repo (`cuba-banks.json`) — matching only on USSD codes, not labels/grouping/language — and opens a tracking issue on drift. This is a CI-side consistency check, not a runtime mechanism; the app itself never talks to that repo.
 
@@ -117,16 +120,20 @@ OperationRunner.shared.run(operation, bankId: bank.id)
 ```swift
 enum OperationPrefill {
     case none
-    case authKey          // the bank's special key    -> implemented
+    case authKey          // the bank's special key    -> implemented (§5.3)
+    case bill(BillType)   // Bill picker               -> implemented (§5.4)
     case cardNumber       // BankAccount picker        -> not wired yet
-    case bill(BillType)   // Bill picker               -> not wired yet
     case nautaAccount     // NautaAccount picker       -> not wired yet
 }
 ```
 
-Today the resolver keys off the `isLogin` flag from `codes.json`. The remaining cases are declared but inert — they exist so the upcoming flows (transfer → copy a card number, electricity/water/phone → copy a bill number) plug into one place instead of being re-implemented per screen. Wiring one means: add the field to `codes.json`, map it in `prefill(for:)`, and publish a pending-selection sheet from `run(_:bankId:)` that copies the chosen value before dialing.
+Two inputs drive the resolver: the `isLogin` flag (→ `.authKey`) and the **`prefill` string field** on `BankOperation`, parsed by `OperationPrefill(identifier:)`. Identifiers are language-independent — `bill.electricity`, `bill.water`, `bill.gas`, `bill.telephone`, and the reserved `cardNumber` / `nautaAccount`. Anything unrecognised resolves to `.none`, so an unknown tag degrades to "just dial" rather than failing.
+
+Wiring a remaining case means: tag the operations in `codes.json`, add the identifier to `OperationPrefill(identifier:)`, and publish a pending-selection request from `run(_:bankId:)` that copies the chosen value before dialing — the shape `.bill` already uses.
 
 Entry points that call the runner: `OperationCard` taps in `OperationsListView` and in the Home "Favoritos" list, plus the bank-card tap on `BankSelectionView` when `useBanksAsLogin` is enabled (runs the bank's `isLogin`-flagged operation directly instead of navigating).
+
+**Favorites hold stale snapshots.** `FavoriteOperation` persists a *copy* of the `BankOperation` as it existed when the favorite was added, so a favorite created by an older build carries no `prefill` tag and a possibly outdated `ussdCode`. `run(_:bankId:)` therefore re-resolves the operation through `DataService.operation(id:bankId:)` and only falls back to the stored snapshot when the id no longer exists in `codes.json`. Any future code acting on a favorite's operation must do the same.
 
 ### 5.2 Dialing — `CallService.executeUSSD(code:)`
 
@@ -154,15 +161,30 @@ On an `isLogin` operation, `OperationRunner.prepareAuthKey(bankId:)` looks up th
 
 Behaviour is user-controlled by `authKeyCopyMode` (`@AppStorage`, Settings → "Autenticación en el banco"):
 
-| `AuthKeyCopyMode` | Copies | Notifies |
+| `PrefillCopyMode` | Copies | Notifies |
 |---|---|---|
 | `copyAndNotify` (default, 0) | yes | yes |
 | `copyOnly` (1) | yes | no |
 | `disabled` (2) | no | no |
 
+`PrefillCopyMode` is shared by every prefill flow; each flow owns its own `@AppStorage` key and its own wording (`directLabel` for copy-immediately flows, `pickerLabel` for flows that list options first).
+
 `ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§6) can still trigger the copy even though the Keys screen refuses to render for them.
 
-### 5.4 In-app notifications
+### 5.4 Implemented prefill: service bills
+
+Operations tagged `bill.<type>` in `codes.json` (currently Electricidad `op_6`, Teléfono `op_7`, Agua `op_9`, Pagar Gas `op_23`, identical ids across all three banks) resolve to `.bill(BillType)`. Unlike the auth key, this flow **defers dialing** until the user picks:
+
+1. `requestBillSelection(type:operation:)` filters `UserDataManager.bills` by type. If the mode is `disabled` or no bill of that type is saved, it returns `false` and `run` dials immediately — no empty sheet.
+2. Otherwise it publishes a `BillSelectionRequest` on `@Published var pendingBillSelection` and returns `true`, so `run` stops without dialing. `OperationRunner` is an `ObservableObject` purely for this.
+3. `MainView` presents `BillSelectionView` via `.sheet(item:)`. Rows copy and dial; the trailing "Ninguna, solo marcar" row dials without copying.
+4. `completeBillSelection(_:)` clears the request, copies through `ClipboardService.copySensitive`, optionally toasts, then dials after a 0.35s delay so the sheet finishes dismissing before the system dialer prompt appears.
+
+Governed by `billCopyMode` (Settings → "Pago de facturas") using the same three modes, worded via `pickerLabel`; `disabled` means "never show the list".
+
+**Dismissal is cancellation**: swiping the sheet down sets `pendingBillSelection` to nil through the `.sheet(item:)` binding without ever calling `completeBillSelection`, so the operation does *not* dial. "Ninguna" is the explicit dial-without-copying path. Worth knowing if that ever reads as a bug.
+
+### 5.5 In-app notifications
 
 `ToastCenter.shared.show(_:iconName:isWarning:duration:)` publishes a single current toast; `ToastBannerView`, mounted in `BancaRemotaApp`'s root `ZStack`, renders it above every screen with a spring transition and auto-dismiss (default 2.5s, cancelling any pending dismissal on re-show). It is deliberately **not** `UNUserNotification` — no permission prompt, but also no visibility above the system dialer, which opens within milliseconds of the toast appearing. In practice the user sees the toast on returning to the app, not before confirming the call.
 
