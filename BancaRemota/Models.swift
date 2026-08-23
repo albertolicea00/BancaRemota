@@ -39,6 +39,7 @@ struct BankOperation: Codable, Identifiable {
     let ussdCode: String
     var isLogin: Bool?
     var isDefaultFavorite: Bool?
+    var prefill: String?
 }
 
 // MARK: - Color Hex Initialization Extension
@@ -278,19 +279,30 @@ enum KeyCategory: String, Codable, CaseIterable {
 }
 
 // MARK: - Auto-copy Behaviour (Settings)
-/// What the app does when an operation needs a stored value (for now, the authentication key).
-enum AuthKeyCopyMode: Int, CaseIterable, Identifiable {
+/// What the app does when an operation needs a stored value. Shared by every prefill flow;
+/// only the wording differs between flows that copy straight away and flows that ask first.
+enum PrefillCopyMode: Int, CaseIterable, Identifiable {
     case copyAndNotify = 0
     case copyOnly = 1
     case disabled = 2
 
     var id: Int { rawValue }
 
-    var label: String {
+    /// Flows that copy a single stored value with no picker (the bank PIN).
+    var directLabel: String {
         switch self {
         case .copyAndNotify: return "Copiar y avisar"
         case .copyOnly: return "Copiar sin aviso"
         case .disabled: return "No copiar"
+        }
+    }
+
+    /// Flows that first list the saved values to choose from (service bills).
+    var pickerLabel: String {
+        switch self {
+        case .copyAndNotify: return "Mostrar listado y avisar"
+        case .copyOnly: return "Mostrar listado sin aviso"
+        case .disabled: return "No mostrar listado"
         }
     }
 }

@@ -40,6 +40,12 @@ class DataService {
     func bank(id: String) -> Bank? {
         loadConfiguration()?.banks.first { $0.id == id }
     }
+
+    /// Current definition of an operation. Favorites hold a snapshot encoded when they were added,
+    /// so anything acting on an operation should re-resolve it through here.
+    func operation(id: String, bankId: String) -> BankOperation? {
+        bank(id: bankId)?.categories.flatMap { $0.operations }.first { $0.id == id }
+    }
 }
 
 import LocalAuthentication
@@ -268,26 +274,72 @@ enum OperationPrefill: Equatable {
     case none
     /// The bank's special key (KeyCategory.appBPA / .appBANDEC / .appBM).
     case authKey
+    /// A saved service bill of this type, chosen from a picker before dialing.
+    case bill(BillType)
     /// Not wired yet: a BankAccount card number picker before dialing.
     case cardNumber
-    /// Not wired yet: a Bill picker before dialing.
-    case bill(BillType)
     /// Not wired yet: a NautaAccount picker before dialing.
     case nautaAccount
+
+    /// Parses the `prefill` field of codes.json. Unknown identifiers resolve to nil (treated as `.none`).
+    init?(identifier: String) {
+        switch identifier {
+        case "authKey": self = .authKey
+        case "cardNumber": self = .cardNumber
+        case "nautaAccount": self = .nautaAccount
+        default:
+            guard identifier.hasPrefix("bill."),
+                  let type = BillType.fromPrefillIdentifier(String(identifier.dropFirst("bill.".count))) else {
+                return nil
+            }
+            self = .bill(type)
+        }
+    }
+}
+
+extension BillType {
+    /// Stable, language-independent identifiers used in codes.json (rawValue is user-facing Spanish).
+    static func fromPrefillIdentifier(_ identifier: String) -> BillType? {
+        switch identifier {
+        case "electricity": return .electricity
+        case "water": return .water
+        case "gas": return .gas
+        case "telephone": return .telephone
+        default: return nil
+        }
+    }
+}
+
+/// A pending "pick one of your saved bills, then dial" step. Presented by MainView as a sheet.
+struct BillSelectionRequest: Identifiable {
+    let id = UUID()
+    let type: BillType
+    let bills: [Bill]
+    let operation: BankOperation
 }
 
 /// Every USSD launch in the app goes through here instead of calling CallService directly,
 /// so the "prepare the data the USSD will ask for, then dial" step has one owner.
-class OperationRunner {
+class OperationRunner: ObservableObject {
     static let shared = OperationRunner()
+
+    /// Non-nil while the bill picker is on screen. Dialing is deferred until it resolves.
+    @Published var pendingBillSelection: BillSelectionRequest?
 
     private init() {}
 
-    func run(_ operation: BankOperation, bankId: String) {
+    func run(_ storedOperation: BankOperation, bankId: String) {
+        // Favorites persist a snapshot of the operation taken when it was added, so a snapshot from
+        // an older build carries no `prefill` tag and a stale `ussdCode`. Re-resolve against codes.json.
+        let operation = DataService.shared.operation(id: storedOperation.id, bankId: bankId) ?? storedOperation
+
         switch prefill(for: operation) {
         case .authKey:
             prepareAuthKey(bankId: bankId)
-        case .cardNumber, .bill, .nautaAccount:
+        case .bill(let type):
+            // The picker dials once the user chooses, so stop here when it is shown.
+            if requestBillSelection(type: type, operation: operation) { return }
+        case .cardNumber, .nautaAccount:
             // TODO: present the corresponding picker sheet and copy the chosen value before dialing.
             break
         case .none:
@@ -298,14 +350,21 @@ class OperationRunner {
     }
 
     /// Central resolver: decides what a given operation needs.
-    /// Today it is driven by `isLogin`; the other cases will be driven by new fields in codes.json.
     func prefill(for operation: BankOperation) -> OperationPrefill {
         if operation.isLogin == true { return .authKey }
+        if let identifier = operation.prefill, let parsed = OperationPrefill(identifier: identifier) {
+            return parsed
+        }
         return .none
     }
 
+    private func mode(forKey key: String) -> PrefillCopyMode {
+        PrefillCopyMode(rawValue: UserDefaults.standard.integer(forKey: key)) ?? .copyAndNotify
+    }
+
+    // MARK: Auth key
     private func prepareAuthKey(bankId: String) {
-        let mode = AuthKeyCopyMode(rawValue: UserDefaults.standard.integer(forKey: "authKeyCopyMode")) ?? .copyAndNotify
+        let mode = mode(forKey: "authKeyCopyMode")
         guard mode != .disabled else { return }
         guard let category = KeyCategory.special(forBankId: bankId) else { return }
 
@@ -318,6 +377,37 @@ class OperationRunner {
 
         if mode == .copyAndNotify {
             ToastCenter.shared.show("Clave de \(bankName) copiada al portapapeles")
+        }
+    }
+
+    // MARK: Service bills
+    /// Returns true when the picker was shown, meaning the caller must not dial yet.
+    private func requestBillSelection(type: BillType, operation: BankOperation) -> Bool {
+        guard mode(forKey: "billCopyMode") != .disabled else { return false }
+
+        let bills = UserDataManager.shared.bills.filter { $0.type == type }
+        guard !bills.isEmpty else { return false }
+
+        pendingBillSelection = BillSelectionRequest(type: type, bills: bills, operation: operation)
+        return true
+    }
+
+    /// Resolves the picker. `bill == nil` is the "Ninguna" row: dial without copying anything.
+    func completeBillSelection(_ bill: Bill?) {
+        guard let request = pendingBillSelection else { return }
+        pendingBillSelection = nil
+
+        if let bill = bill {
+            ClipboardService.shared.copySensitive(bill.billNumber)
+            if mode(forKey: "billCopyMode") == .copyAndNotify {
+                ToastCenter.shared.show("\(bill.label) copiada al portapapeles")
+            }
+        }
+
+        // Let the sheet finish dismissing before the system dialer prompt takes over.
+        let code = request.operation.ussdCode
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            CallService.shared.executeUSSD(code: code)
         }
     }
 }

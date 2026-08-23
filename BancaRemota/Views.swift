@@ -16,6 +16,7 @@ struct MainView: View {
     @AppStorage("selectedBankID") private var selectedBankID: String = ""
     @State private var isMenuOpen = false
     @AppStorage("activeScreen") private var activeScreen: ActiveScreen = .home
+    @ObservedObject private var operationRunner = OperationRunner.shared
     
     private var selectedBank: Bank? {
         config?.banks.first { $0.id == selectedBankID }
@@ -118,6 +119,12 @@ struct MainView: View {
                 )
                 .frame(width: 280)
                 .transition(.move(edge: .leading))
+            }
+        }
+        // Prefill picker for bill-paying operations. Swiping the sheet away cancels the operation.
+        .sheet(item: $operationRunner.pendingBillSelection) { request in
+            BillSelectionView(request: request) { bill in
+                operationRunner.completeBillSelection(bill)
             }
         }
     }
@@ -708,7 +715,8 @@ struct ConfigView: View {
     
     @AppStorage("useCustomFavoriteColor") private var useCustomFavoriteColor = true
     @AppStorage("favoriteCustomColorHex") private var favoriteCustomColorHex = "B38B4D"
-    @AppStorage("authKeyCopyMode") private var authKeyCopyMode: Int = AuthKeyCopyMode.copyAndNotify.rawValue
+    @AppStorage("authKeyCopyMode") private var authKeyCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("billCopyMode") private var billCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
 
     @State private var pendingAuthEnabled: Bool = false
     @State private var selectedFavoriteColor: Color = .appPrimary
@@ -772,8 +780,16 @@ struct ConfigView: View {
                 
                 Section(header: Text("Autenticación en el banco"), footer: Text("Al ejecutar una operación de autenticación, la app copia al portapapeles la clave especial de ese banco (categorías «PIN BPA», «PIN BANDEC» y «PIN BM» en Mis Claves) para que la pegues cuando el USSD la pida. La copia se borra sola a los 2 minutos y no se sincroniza con otros dispositivos.")) {
                     Picker("Clave al autenticarse", selection: $authKeyCopyMode) {
-                        ForEach(AuthKeyCopyMode.allCases) { mode in
-                            Text(mode.label).tag(mode.rawValue)
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.directLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Pago de facturas"), footer: Text("Al pagar electricidad, teléfono, agua o gas, la app lista tus cuentas de servicio guardadas de ese tipo para copiar el número al portapapeles antes de marcar. Siempre puedes elegir «Ninguna» y marcar sin copiar.")) {
+                    Picker("Cuentas guardadas", selection: $billCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
                         }
                     }
                 }
@@ -1544,6 +1560,68 @@ struct KeysListView: View {
             }
         } message: {
             Text("Esta acción no se puede deshacer.")
+        }
+    }
+}
+
+// MARK: - Bill Selection Sheet (prefill before dialing)
+struct BillSelectionView: View {
+    let request: BillSelectionRequest
+    let onSelect: (Bill?) -> Void
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section(header: Text("Toca la cuenta para copiar su número"), footer: Text("El número queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
+                    ForEach(request.bills) { bill in
+                        Button(action: { onSelect(bill) }) {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.appPrimary.opacity(0.15))
+                                        .frame(width: 42, height: 42)
+                                    Image(systemName: bill.type.iconName)
+                                        .font(.system(size: 17, weight: .bold))
+                                        .foregroundColor(.appPrimary)
+                                }
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(bill.label)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    Text(bill.billNumber)
+                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                        .foregroundColor(.appPrimary)
+                                    if !bill.group.isEmpty {
+                                        Text(bill.group)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "doc.on.clipboard")
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                Section {
+                    Button(action: { onSelect(nil) }) {
+                        HStack {
+                            Image(systemName: "xmark.circle")
+                            Text("Ninguna, solo marcar")
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Pagar \(request.type.rawValue)")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
