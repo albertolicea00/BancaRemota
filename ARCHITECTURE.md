@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.4 · **Last commit documented:** `4d598f4`
+**Last updated:** 2026-08-23 · **Doc version:** 1.5 · **Last commit documented:** `3948553`
 
 ---
 
@@ -51,7 +51,7 @@ There is no MVVM view-model layer in the classic sense; screens are SwiftUI `Vie
 |---|---|---|
 | `BancaRemota/BancaRemotaApp.swift` | 53 | `@main` entry point. Hosts `MainView`, overlays the biometric lock screen, applies the dark/light/system theme, and forwards `ScenePhase` changes to `AuthManager`. |
 | `BancaRemota/Models.swift` | 218 | All `Codable` data models: static config models (`Bank`, `OperationCategory`, `BankOperation`), user-data models (`NautaAccount`, `BankAccount`, `Bill`, `UserKey`), `FavoritesManager`, and the `Color(hex:)` / `toHex()` extension. |
-| `BancaRemota/Services.swift` | 522 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption). |
+| `BancaRemota/Services.swift` | 522 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ContactsService` (address-book read for the mobile top-up picker), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption). |
 | `BancaRemota/UIComponents.swift` | 595 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `ToastBannerView`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
 | `BancaRemota/Views.swift` | 1,906 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), info/help (`HelpView`, `TutorialView`), settings (`ConfigView`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, plus small shared helpers (`EmptyStateView`, `DetailRow`). |
 | `BancaRemota/codes.json` | 209 | Static, bundled dataset: 3 banks × 4 categories each, ~37 operations per bank (112 total), each with a name, description, SF Symbol icon name, USSD dial string, and optional `isLogin` / `isDefaultFavorite` flags. |
@@ -123,7 +123,8 @@ enum OperationPrefill {
     case authKey          // the bank's special key    -> implemented (§5.3)
     case bill(BillType)   // Bill picker               -> implemented (§5.4)
     case nautaAccount     // NautaAccount picker       -> implemented (§5.4)
-    case cardNumber       // BankAccount picker        -> not wired yet
+    case cardNumber       // BankAccount picker        -> implemented (§5.4)
+    case contactPhone     // address book picker       -> implemented (§5.4)
 }
 ```
 
@@ -171,23 +172,37 @@ Behaviour is user-controlled by `authKeyCopyMode` (`@AppStorage`, Settings → "
 
 `ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§6) can still trigger the copy even though the Keys screen refuses to render for them.
 
-### 5.4 Implemented prefill: picker flows (bills, Nauta)
+### 5.4 Implemented prefill: picker flows
 
-Unlike the auth key, these flows **defer dialing** until the user picks. They share one generic pipeline, so adding `cardNumber` is a matter of supplying options:
+Unlike the auth key, these flows **defer dialing** until the user picks. They share one generic pipeline, so a new flow only has to supply options:
 
-1. A per-flow builder maps saved records to `[PrefillOption]` (`id`, `label`, `value`, `detail`, `iconName`) and calls `requestSelection(title:options:operation:modeKey:)`.
-2. That returns `false` — meaning "dial now" — when the flow's mode is `disabled` or **no matching record is saved**, so an empty sheet never appears. Otherwise it publishes a `PrefillSelectionRequest` on `@Published var pendingSelection` and returns `true`, and `run` stops without dialing. `OperationRunner` is an `ObservableObject` purely for this.
+1. A per-flow builder maps records to `[PrefillOption]` (`id`, `label`, `value`, `detail`, `iconName`) and calls `requestSelection(title:options:operation:modeKey:isSearchable:)`.
+2. That returns `false` — meaning "dial now" — when the flow's mode is `disabled` or **no matching record exists**, so an empty sheet never appears. Otherwise it publishes a `PrefillSelectionRequest` on `@Published var pendingSelection` and returns `true`, and `run` stops without dialing. `OperationRunner` is an `ObservableObject` purely for this.
 3. `MainView` presents `PrefillSelectionView` via `.sheet(item:)`. Rows copy and dial; the trailing "Ninguno, solo marcar" row dials without copying.
 4. `completeSelection(_:)` clears the request, copies through `ClipboardService.copySensitive`, optionally toasts (reading the mode from the request's own `modeKey`), then dials after a 0.35s delay so the sheet finishes dismissing before the system dialer prompt appears.
 
 | Flow | `codes.json` tag | Tagged ops | Source records | Mode key | Settings section |
 |---|---|---|---|---|---|
+| Transfer | `cardNumber` | `op_4` | `UserDataManager.bankAccounts` | `cardCopyMode` | "Transferencias" |
 | Service bills | `bill.electricity` / `bill.water` / `bill.gas` / `bill.telephone` | `op_6`, `op_9`, `op_23`, `op_7` | `UserDataManager.bills` filtered by `BillType` | `billCopyMode` | "Pago de facturas" |
 | Nauta top-up | `nautaAccount` | `op_21` | `UserDataManager.nautaAccounts` (all of them) | `nautaCopyMode` | "Recarga Nauta" |
+| Mobile top-up | `contactPhone` | `op_26` | Device address book via `ContactsService` | `contactCopyMode` | "Recarga de móvil" |
 
 Op ids are identical across all three banks, so each tag applies three times.
 
+**Sheet height**: `PrefillSelectionView` uses `.presentationDetents([.medium, .large])` — half screen, draggable to full — except the searchable contacts flow, which opens at `.large`. Detents are iOS 16+; on iOS 15 (the deployment target is 15.6) every sheet is full height.
+
 **Nauta Hogar is deliberately untagged.** `op_37` (Pago Nauta Hogar) and `op_40` (Pago deuda Nauta Hogar) bill a household contract, not the browsing account that `NautaAccount` models — offering those saved accounts there would prompt the user to paste the wrong number. Tag them only once the app models Nauta Hogar contracts.
+
+#### Contacts flow specifics
+
+`ContactsService` reads the address book directly (`CNContactStore.enumerateContacts`) so the list renders inside the app instead of Apple's `CNContactPickerViewController`. That is the whole reason the app needs **`NSContactsUsageDescription`** (declared as `INFOPLIST_KEY_NSContactsUsageDescription` in the target's build settings, since the Info.plist is generated) and a full-read authorization prompt; the system picker would need no permission but no custom UI either. Nothing is persisted or transmitted — the fetch is per-invocation, in memory.
+
+It is the one flow that cannot resolve synchronously, so `requestContactSelection` always returns `true` and owns the dialing: the completion either publishes the picker or dials directly. Enumeration runs on a background queue; one option is produced **per phone number**, not per contact, labelled with the localized phone label.
+
+`ContactsService.normalize` strips formatting and a leading Cuban country code (`53` when the result is 10 digits), so `+53 5 123 4567` is copied as `51234567`. Numbers that do not match that shape are copied as bare digits. The row shows the normalized value, so what the user sees is what lands in the pasteboard.
+
+Access denied is the one case that surfaces a warning toast (in `copyAndNotify` mode only) rather than failing silently like a missing saved record — it is user-actionable, whereas "you have no bills saved" is not.
 
 **Dismissal is cancellation**: swiping the sheet down sets `pendingSelection` to nil through the `.sheet(item:)` binding without ever calling `completeSelection`, so the operation does *not* dial. "Ninguno" is the explicit dial-without-copying path. Worth knowing if that ever reads as a bug.
 
