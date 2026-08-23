@@ -553,9 +553,21 @@ struct HelpView: View {
                                 Label("Tú controlas tus archivos de respaldo", systemImage: "archivebox")
                                 Label("Sin publicidad ni rastreo", systemImage: "eye.slash")
                                 Label("Acceso protegido por Face ID / Touch ID", systemImage: "faceid")
+                                Label("Lo copiado caduca a los 2 minutos y no sale del dispositivo", systemImage: "doc.on.clipboard")
+                                Label("Tus contactos se leen solo al recargar un móvil", systemImage: "person.crop.circle")
                             }
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+
+                            Text("Al recargar un móvil, la app pide permiso para leer tus contactos y así mostrártelos dentro de la propia app en vez de abrir la agenda del sistema. Se leen en ese momento y nada más: no se guardan, no se copian a ningún archivo y no se envían a ningún sitio. Puedes desactivarlo en Configuración o denegar el permiso desde Ajustes de iOS.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .padding(.top, 4)
+
+                            Text("Cuando la app copia una clave, una tarjeta o un número al portapapeles, lo hace de forma que no se sincronice con tus otros dispositivos y iOS lo borra solo a los 2 minutos.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .padding(.top, 4)
 
                             Text("Tus datos están protegidos localmente por iOS. Si habilitas la sincronización con iCloud, la app cifra tu información con tu contraseña personal de forma que solo tú (y nadie más, ni siquiera Apple) pueda ver tus datos.")
                                 .font(.caption)
@@ -665,6 +677,10 @@ struct TutorialView: View {
 
                     HelpSection(title: "Primera vez: Sesión", content: "Antes de consultar saldo o hacer transferencias, debes autenticarte en el banco. Busca la categoría 'Sesión' o 'Inicio de sesión' dentro de tu banco y ejecuta esa operación primero. Cada banco puede requerir tu número de tarjeta o móvil durante el proceso USSD.")
 
+                    HelpSection(title: "Copiado automático para el USSD", content: "Muchas operaciones te piden un dato a mitad del proceso: la clave del banco, un número de tarjeta, de factura o de móvil. La app te lo deja copiado en el portapapeles justo antes de abrir el marcador, para que solo tengas que pegarlo cuando el menú USSD lo pida.\n\n• Autenticarse: copia sola la clave de ese banco (ver 'Mis Claves').\n• Transferencia: te lista tus tarjetas guardadas.\n• Electricidad, teléfono, agua y gas: te lista tus cuentas de servicio de ese tipo.\n• Recargar Nauta: te lista tus cuentas Nauta guardadas.\n• Recargar móvil: te lista tus contactos, con buscador, dentro de la propia app.\n\nEn los listados siempre está la opción 'Ninguno, solo marcar' por si prefieres escribir el dato a mano. Lo que se copia no viaja a tus otros dispositivos y se borra solo a los 2 minutos.")
+
+                    HelpSection(title: "Ajustar el copiado", content: "Cada uno de estos comportamientos se configura por separado en Configuración, con tres opciones: copiar y avisar, copiar sin aviso, o desactivarlo. En los que muestran un listado, desactivarlo significa que la app marca directamente sin preguntarte nada.\n\nSi no tienes nada guardado de ese tipo, la app no te muestra un listado vacío: simplemente marca.")
+
                     HelpSection(title: "Favoritos", content: "Desde Inicio puedes agregar operaciones frecuentes a Favoritos para acceder a ellas sin navegar por el banco. Mantén pulsado y arrastra para reordenarlas. Puedes personalizar el color de las tarjetas favoritas desde Configuración.")
 
                     HelpSection(title: "Gestión de Tarjetas", content: "En 'Cuentas de Banco' puedes guardar los datos de tus tarjetas (número, titular, móvil asociado). Los números se muestran enmascarados pero puedes copiarlos al portapapeles. Toca una tarjeta para ver todos los detalles.")
@@ -673,7 +689,7 @@ struct TutorialView: View {
 
                     HelpSection(title: "Facturas de Servicios", content: "En 'Cuentas de Servicios' puedes guardar los números de contrato de electricidad, agua, gas y teléfono. Cópialos fácilmente cuando los necesites para una operación USSD de pago.")
 
-                    HelpSection(title: "Mis Claves", content: "Guarda PINs, contraseñas y claves de forma local. Esta sección solo está disponible si tienes activada la autenticación biométrica en Configuración, como medida de seguridad adicional.")
+                    HelpSection(title: "Mis Claves", content: "Guarda PINs, contraseñas y claves de forma local. Esta sección solo está disponible si tienes activada la autenticación biométrica en Configuración, como medida de seguridad adicional.\n\nHay tres categorías especiales — PIN BPA, PIN BANDEC y PIN BM — de las que solo puedes guardar una clave de cada una. Son las que la app copia sola al ejecutar 'Autenticarse' en ese banco. Llevan etiqueta fija y su icono es el del banco. Si el PIN no parece correcto (4 dígitos en BPA y BM, 5 en BANDEC, solo números) verás un aviso, pero puedes guardarlo igual.")
 
                     HelpSection(title: "Autenticación", content: "Desde Configuración puedes activar Face ID / Touch ID para proteger la entrada a la app. También puedes ajustar el tiempo de expiración de sesión (desde inmediato hasta 15 minutos).")
                     
