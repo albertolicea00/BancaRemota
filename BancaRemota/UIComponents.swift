@@ -199,8 +199,8 @@ struct BankSelectionCard: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(bank.textColor)
             }
-            .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(bank.themeColor)
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 3)

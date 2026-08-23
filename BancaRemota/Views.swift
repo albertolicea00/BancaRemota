@@ -215,7 +215,7 @@ struct BankSelectionView: View {
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
                             
-                            ScrollView(.horizontal, showsIndicators: false) {
+                            if banks.count <= 3 {
                                 HStack(spacing: 15) {
                                     ForEach(banks) { bank in
                                         BankSelectionCard(bank: bank) {
@@ -226,10 +226,28 @@ struct BankSelectionView: View {
                                                 onSelectBank(bank)
                                             }
                                         }
-                                        .frame(width: 100)
+                                        .frame(maxWidth: .infinity)
+                                        .aspectRatio(1, contentMode: .fit)
                                     }
                                 }
                                 .padding(.horizontal)
+                            } else {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 15) {
+                                        ForEach(banks) { bank in
+                                            BankSelectionCard(bank: bank) {
+                                                if useBanksAsLogin,
+                                                   let authOp = bank.categories.flatMap({ $0.operations }).first(where: { $0.isLogin == true }) {
+                                                    CallService.shared.executeUSSD(code: authOp.ussdCode)
+                                                } else {
+                                                    onSelectBank(bank)
+                                                }
+                                            }
+                                            .frame(width: 100)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                }
                             }
                         }
                         .padding(.top, 20)
