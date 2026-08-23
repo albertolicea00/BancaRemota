@@ -770,7 +770,7 @@ struct ConfigView: View {
                     //     .disabled(!showBanksInFavorites)
                 }
                 
-                Section(header: Text("Autenticación en el banco"), footer: Text("Al ejecutar una operación de autenticación, la app copia al portapapeles la clave especial de ese banco (categorías «BancaRemota (…)» en Mis Claves) para que la pegues cuando el USSD la pida. La copia se borra sola a los 2 minutos y no se sincroniza con otros dispositivos.")) {
+                Section(header: Text("Autenticación en el banco"), footer: Text("Al ejecutar una operación de autenticación, la app copia al portapapeles la clave especial de ese banco (categorías «PIN BPA», «PIN BANDEC» y «PIN BM» en Mis Claves) para que la pegues cuando el USSD la pida. La copia se borra sola a los 2 minutos y no se sincroniza con otros dispositivos.")) {
                     Picker("Clave al autenticarse", selection: $authKeyCopyMode) {
                         ForEach(AuthKeyCopyMode.allCases) { mode in
                             Text(mode.label).tag(mode.rawValue)
@@ -1493,7 +1493,7 @@ struct KeysListView: View {
                                     DataCard(
                                         id: key.id,
                                         title: key.label,
-                                        subtitle: key.category == .other ? (key.customCategory ?? "Otros") : key.category.rawValue,
+                                        subtitle: key.category == .other ? (key.customCategory ?? "Otros") : key.category.displayName,
                                         value: key.value,
                                         iconName: key.category.iconName,
                                         backgroundColor: .appPrimary,
@@ -1759,6 +1759,15 @@ struct AddKeyView: View {
         userData.canUseSpecialCategory(category, excluding: keyToEdit?.id)
     }
 
+    /// Advisory only — never blocks saving.
+    private var valueWarning: String? {
+        category.warning(forValue: value)
+    }
+
+    /// onAppear assigns `category`, which would fire the auto-label onChange and clobber
+    /// the label of the key being edited. Skip that first programmatic change.
+    @State private var didLoadInitialValues = false
+
     var body: some View {
         NavigationView {
             Form {
@@ -1767,10 +1776,26 @@ struct AddKeyView: View {
                     : "")) {
                     TextField("Etiqueta (ej: PIN BPA)", text: $label)
                     TextField("Clave / Contraseña", text: $value)
+                        .keyboardType(category.maxPinLength != nil ? .numberPad : .default)
+
+                    if let valueWarning = valueWarning {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(valueWarning)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    }
+
                     Picker("Categoría", selection: $category) {
                         ForEach(availableCategories, id: \.self) { cat in
-                            Text(cat.rawValue).tag(cat)
+                            Text(cat.displayName).tag(cat)
                         }
+                    }
+                    .onChange(of: category) { newCategory in
+                        guard didLoadInitialValues else { return }
+                        applyDefaultLabel(for: newCategory)
                     }
 
                     if category == .other {
@@ -1805,7 +1830,22 @@ struct AddKeyView: View {
                     customCategory = edit.customCategory ?? ""
                     group = edit.group
                 }
+                didLoadInitialValues = true
             }
+        }
+    }
+
+    /// Special categories carry their own label ("BancaRemota (BPA)"). Fill it in on selection,
+    /// and clear it again if the user leaves the category without having typed their own.
+    private func applyDefaultLabel(for newCategory: KeyCategory) {
+        let previousDefaults = KeyCategory.allCases.compactMap { $0.defaultLabel }
+
+        if let defaultLabel = newCategory.defaultLabel {
+            if label.isEmpty || previousDefaults.contains(label) {
+                label = defaultLabel
+            }
+        } else if previousDefaults.contains(label) {
+            label = ""
         }
     }
 }

@@ -235,6 +235,43 @@ enum KeyCategory: String, Codable, CaseIterable {
     /// Special category => unique per bank, tied to one specific bank.
     var isSpecial: Bool { bankId != nil }
 
+    /// Name shown to the user in pickers and lists. rawValue stays as the persisted identity.
+    var displayName: String {
+        switch self {
+        case .appBPA: return "PIN BPA"
+        case .appBANDEC: return "PIN BANDEC"
+        case .appBM: return "PIN BM"
+        case .bank, .nauta, .other: return rawValue
+        }
+    }
+
+    /// Label pre-filled into the key when a special category is picked.
+    var defaultLabel: String? { isSpecial ? rawValue : nil }
+
+    /// Max digits accepted for this category's PIN. nil = no length rule.
+    var maxPinLength: Int? {
+        switch self {
+        case .appBANDEC: return 5
+        case .appBPA, .appBM: return 4
+        case .bank, .nauta, .other: return nil
+        }
+    }
+
+    /// Non-blocking warning about a key value. nil = nothing to warn about.
+    /// Never prevents saving; it only tells the user the PIN looks wrong for this bank.
+    func warning(forValue value: String) -> String? {
+        guard let maxPinLength = maxPinLength, !value.isEmpty else { return nil }
+        let bankName = bankId?.uppercased() ?? rawValue
+
+        if !value.allSatisfy({ $0.isASCII && $0.isNumber }) {
+            return "El PIN de \(bankName) normalmente es solo numérico."
+        }
+        if value.count > maxPinLength {
+            return "El PIN de \(bankName) normalmente tiene \(maxPinLength) dígitos como máximo."
+        }
+        return nil
+    }
+
     static func special(forBankId bankId: String) -> KeyCategory? {
         allCases.first { $0.bankId == bankId }
     }
