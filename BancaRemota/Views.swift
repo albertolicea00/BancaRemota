@@ -121,10 +121,10 @@ struct MainView: View {
                 .transition(.move(edge: .leading))
             }
         }
-        // Prefill picker for bill-paying operations. Swiping the sheet away cancels the operation.
-        .sheet(item: $operationRunner.pendingBillSelection) { request in
-            BillSelectionView(request: request) { bill in
-                operationRunner.completeBillSelection(bill)
+        // Prefill picker for operations that need a saved value. Swiping it away cancels the operation.
+        .sheet(item: $operationRunner.pendingSelection) { request in
+            PrefillSelectionView(request: request) { option in
+                operationRunner.completeSelection(option)
             }
         }
     }
@@ -717,6 +717,7 @@ struct ConfigView: View {
     @AppStorage("favoriteCustomColorHex") private var favoriteCustomColorHex = "B38B4D"
     @AppStorage("authKeyCopyMode") private var authKeyCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
     @AppStorage("billCopyMode") private var billCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("nautaCopyMode") private var nautaCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
 
     @State private var pendingAuthEnabled: Bool = false
     @State private var selectedFavoriteColor: Color = .appPrimary
@@ -786,8 +787,16 @@ struct ConfigView: View {
                     }
                 }
 
-                Section(header: Text("Pago de facturas"), footer: Text("Al pagar electricidad, teléfono, agua o gas, la app lista tus cuentas de servicio guardadas de ese tipo para copiar el número al portapapeles antes de marcar. Siempre puedes elegir «Ninguna» y marcar sin copiar.")) {
+                Section(header: Text("Pago de facturas"), footer: Text("Al pagar electricidad, teléfono, agua o gas, la app lista tus cuentas de servicio guardadas de ese tipo para copiar el número al portapapeles antes de marcar. Siempre puedes elegir «Ninguno» y marcar sin copiar.")) {
                     Picker("Cuentas guardadas", selection: $billCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Recarga Nauta"), footer: Text("Al recargar Nauta, la app lista tus cuentas Nauta guardadas para copiar el usuario al portapapeles antes de marcar.")) {
+                    Picker("Cuentas guardadas", selection: $nautaCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
                             Text(mode.pickerLabel).tag(mode.rawValue)
                         }
@@ -1564,36 +1573,36 @@ struct KeysListView: View {
     }
 }
 
-// MARK: - Bill Selection Sheet (prefill before dialing)
-struct BillSelectionView: View {
-    let request: BillSelectionRequest
-    let onSelect: (Bill?) -> Void
+// MARK: - Prefill Selection Sheet (pick a saved value, then dial)
+struct PrefillSelectionView: View {
+    let request: PrefillSelectionRequest
+    let onSelect: (PrefillOption?) -> Void
 
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("Toca la cuenta para copiar su número"), footer: Text("El número queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
-                    ForEach(request.bills) { bill in
-                        Button(action: { onSelect(bill) }) {
+                Section(header: Text("Toca para copiar el dato guardado"), footer: Text("Queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
+                    ForEach(request.options) { option in
+                        Button(action: { onSelect(option) }) {
                             HStack(spacing: 14) {
                                 ZStack {
                                     Circle()
                                         .fill(Color.appPrimary.opacity(0.15))
                                         .frame(width: 42, height: 42)
-                                    Image(systemName: bill.type.iconName)
+                                    Image(systemName: option.iconName)
                                         .font(.system(size: 17, weight: .bold))
                                         .foregroundColor(.appPrimary)
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(bill.label)
+                                    Text(option.label)
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.primary)
-                                    Text(bill.billNumber)
+                                    Text(option.value)
                                         .font(.system(size: 14, weight: .medium, design: .monospaced))
                                         .foregroundColor(.appPrimary)
-                                    if !bill.group.isEmpty {
-                                        Text(bill.group)
+                                    if !option.detail.isEmpty {
+                                        Text(option.detail)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -1613,14 +1622,14 @@ struct BillSelectionView: View {
                     Button(action: { onSelect(nil) }) {
                         HStack {
                             Image(systemName: "xmark.circle")
-                            Text("Ninguna, solo marcar")
+                            Text("Ninguno, solo marcar")
                         }
                         .foregroundColor(.secondary)
                     }
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Pagar \(request.type.rawValue)")
+            .navigationTitle(request.title)
             .navigationBarTitleDisplayMode(.inline)
         }
     }

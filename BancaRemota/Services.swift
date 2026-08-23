@@ -310,12 +310,23 @@ extension BillType {
     }
 }
 
-/// A pending "pick one of your saved bills, then dial" step. Presented by MainView as a sheet.
-struct BillSelectionRequest: Identifiable {
+/// One row of the prefill picker: a saved value the user can copy before dialing.
+struct PrefillOption: Identifiable {
+    let id: UUID
+    let label: String
+    let value: String
+    let detail: String
+    let iconName: String
+}
+
+/// A pending "pick one of your saved values, then dial" step. Presented by MainView as a sheet.
+struct PrefillSelectionRequest: Identifiable {
     let id = UUID()
-    let type: BillType
-    let bills: [Bill]
+    let title: String
+    let options: [PrefillOption]
     let operation: BankOperation
+    /// UserDefaults key of the PrefillCopyMode governing this flow.
+    let modeKey: String
 }
 
 /// Every USSD launch in the app goes through here instead of calling CallService directly,
@@ -323,8 +334,8 @@ struct BillSelectionRequest: Identifiable {
 class OperationRunner: ObservableObject {
     static let shared = OperationRunner()
 
-    /// Non-nil while the bill picker is on screen. Dialing is deferred until it resolves.
-    @Published var pendingBillSelection: BillSelectionRequest?
+    /// Non-nil while a prefill picker is on screen. Dialing is deferred until it resolves.
+    @Published var pendingSelection: PrefillSelectionRequest?
 
     private init() {}
 
@@ -339,7 +350,9 @@ class OperationRunner: ObservableObject {
         case .bill(let type):
             // The picker dials once the user chooses, so stop here when it is shown.
             if requestBillSelection(type: type, operation: operation) { return }
-        case .cardNumber, .nautaAccount:
+        case .nautaAccount:
+            if requestNautaSelection(operation: operation) { return }
+        case .cardNumber:
             // TODO: present the corresponding picker sheet and copy the chosen value before dialing.
             break
         case .none:
@@ -380,27 +393,47 @@ class OperationRunner: ObservableObject {
         }
     }
 
-    // MARK: Service bills
+    // MARK: Picker flows
     /// Returns true when the picker was shown, meaning the caller must not dial yet.
-    private func requestBillSelection(type: BillType, operation: BankOperation) -> Bool {
-        guard mode(forKey: "billCopyMode") != .disabled else { return false }
+    private func requestSelection(title: String, options: [PrefillOption], operation: BankOperation, modeKey: String) -> Bool {
+        guard mode(forKey: modeKey) != .disabled else { return false }
+        guard !options.isEmpty else { return false }
 
-        let bills = UserDataManager.shared.bills.filter { $0.type == type }
-        guard !bills.isEmpty else { return false }
-
-        pendingBillSelection = BillSelectionRequest(type: type, bills: bills, operation: operation)
+        pendingSelection = PrefillSelectionRequest(title: title, options: options, operation: operation, modeKey: modeKey)
         return true
     }
 
-    /// Resolves the picker. `bill == nil` is the "Ninguna" row: dial without copying anything.
-    func completeBillSelection(_ bill: Bill?) {
-        guard let request = pendingBillSelection else { return }
-        pendingBillSelection = nil
+    private func requestBillSelection(type: BillType, operation: BankOperation) -> Bool {
+        let options = UserDataManager.shared.bills
+            .filter { $0.type == type }
+            .map { PrefillOption(id: $0.id, label: $0.label, value: $0.billNumber, detail: $0.group, iconName: type.iconName) }
 
-        if let bill = bill {
-            ClipboardService.shared.copySensitive(bill.billNumber)
-            if mode(forKey: "billCopyMode") == .copyAndNotify {
-                ToastCenter.shared.show("\(bill.label) copiada al portapapeles")
+        return requestSelection(title: "Pagar \(type.rawValue)", options: options, operation: operation, modeKey: "billCopyMode")
+    }
+
+    private func requestNautaSelection(operation: BankOperation) -> Bool {
+        let options = UserDataManager.shared.nautaAccounts.map { account in
+            PrefillOption(
+                id: account.id,
+                label: account.label,
+                value: account.account,
+                detail: [account.type, account.group].filter { !$0.isEmpty }.joined(separator: " · "),
+                iconName: "wifi"
+            )
+        }
+
+        return requestSelection(title: operation.name, options: options, operation: operation, modeKey: "nautaCopyMode")
+    }
+
+    /// Resolves the picker. `option == nil` is the "Ninguna" row: dial without copying anything.
+    func completeSelection(_ option: PrefillOption?) {
+        guard let request = pendingSelection else { return }
+        pendingSelection = nil
+
+        if let option = option {
+            ClipboardService.shared.copySensitive(option.value)
+            if mode(forKey: request.modeKey) == .copyAndNotify {
+                ToastCenter.shared.show("Copiado al portapapeles: \(option.label)")
             }
         }
 
