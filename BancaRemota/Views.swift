@@ -1435,7 +1435,7 @@ struct KeysListView: View {
                     Spacer()
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(.purple.opacity(0.4))
+                        .foregroundColor(.appPrimary)
                     Text("Sección protegida")
                         .font(.title3)
                         .fontWeight(.bold)
