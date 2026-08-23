@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.3 · **Last commit documented:** `16bad5d`
+**Last updated:** 2026-08-23 · **Doc version:** 1.4 · **Last commit documented:** `4d598f4`
 
 ---
 
@@ -122,8 +122,8 @@ enum OperationPrefill {
     case none
     case authKey          // the bank's special key    -> implemented (§5.3)
     case bill(BillType)   // Bill picker               -> implemented (§5.4)
+    case nautaAccount     // NautaAccount picker       -> implemented (§5.4)
     case cardNumber       // BankAccount picker        -> not wired yet
-    case nautaAccount     // NautaAccount picker       -> not wired yet
 }
 ```
 
@@ -171,18 +171,25 @@ Behaviour is user-controlled by `authKeyCopyMode` (`@AppStorage`, Settings → "
 
 `ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§6) can still trigger the copy even though the Keys screen refuses to render for them.
 
-### 5.4 Implemented prefill: service bills
+### 5.4 Implemented prefill: picker flows (bills, Nauta)
 
-Operations tagged `bill.<type>` in `codes.json` (currently Electricidad `op_6`, Teléfono `op_7`, Agua `op_9`, Pagar Gas `op_23`, identical ids across all three banks) resolve to `.bill(BillType)`. Unlike the auth key, this flow **defers dialing** until the user picks:
+Unlike the auth key, these flows **defer dialing** until the user picks. They share one generic pipeline, so adding `cardNumber` is a matter of supplying options:
 
-1. `requestBillSelection(type:operation:)` filters `UserDataManager.bills` by type. If the mode is `disabled` or no bill of that type is saved, it returns `false` and `run` dials immediately — no empty sheet.
-2. Otherwise it publishes a `BillSelectionRequest` on `@Published var pendingBillSelection` and returns `true`, so `run` stops without dialing. `OperationRunner` is an `ObservableObject` purely for this.
-3. `MainView` presents `BillSelectionView` via `.sheet(item:)`. Rows copy and dial; the trailing "Ninguna, solo marcar" row dials without copying.
-4. `completeBillSelection(_:)` clears the request, copies through `ClipboardService.copySensitive`, optionally toasts, then dials after a 0.35s delay so the sheet finishes dismissing before the system dialer prompt appears.
+1. A per-flow builder maps saved records to `[PrefillOption]` (`id`, `label`, `value`, `detail`, `iconName`) and calls `requestSelection(title:options:operation:modeKey:)`.
+2. That returns `false` — meaning "dial now" — when the flow's mode is `disabled` or **no matching record is saved**, so an empty sheet never appears. Otherwise it publishes a `PrefillSelectionRequest` on `@Published var pendingSelection` and returns `true`, and `run` stops without dialing. `OperationRunner` is an `ObservableObject` purely for this.
+3. `MainView` presents `PrefillSelectionView` via `.sheet(item:)`. Rows copy and dial; the trailing "Ninguno, solo marcar" row dials without copying.
+4. `completeSelection(_:)` clears the request, copies through `ClipboardService.copySensitive`, optionally toasts (reading the mode from the request's own `modeKey`), then dials after a 0.35s delay so the sheet finishes dismissing before the system dialer prompt appears.
 
-Governed by `billCopyMode` (Settings → "Pago de facturas") using the same three modes, worded via `pickerLabel`; `disabled` means "never show the list".
+| Flow | `codes.json` tag | Tagged ops | Source records | Mode key | Settings section |
+|---|---|---|---|---|---|
+| Service bills | `bill.electricity` / `bill.water` / `bill.gas` / `bill.telephone` | `op_6`, `op_9`, `op_23`, `op_7` | `UserDataManager.bills` filtered by `BillType` | `billCopyMode` | "Pago de facturas" |
+| Nauta top-up | `nautaAccount` | `op_21` | `UserDataManager.nautaAccounts` (all of them) | `nautaCopyMode` | "Recarga Nauta" |
 
-**Dismissal is cancellation**: swiping the sheet down sets `pendingBillSelection` to nil through the `.sheet(item:)` binding without ever calling `completeBillSelection`, so the operation does *not* dial. "Ninguna" is the explicit dial-without-copying path. Worth knowing if that ever reads as a bug.
+Op ids are identical across all three banks, so each tag applies three times.
+
+**Nauta Hogar is deliberately untagged.** `op_37` (Pago Nauta Hogar) and `op_40` (Pago deuda Nauta Hogar) bill a household contract, not the browsing account that `NautaAccount` models — offering those saved accounts there would prompt the user to paste the wrong number. Tag them only once the app models Nauta Hogar contracts.
+
+**Dismissal is cancellation**: swiping the sheet down sets `pendingSelection` to nil through the `.sheet(item:)` binding without ever calling `completeSelection`, so the operation does *not* dial. "Ninguno" is the explicit dial-without-copying path. Worth knowing if that ever reads as a bug.
 
 ### 5.5 In-app notifications
 
