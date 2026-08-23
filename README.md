@@ -88,6 +88,8 @@ open BancaRemota.xcodeproj
 | `UIComponents.swift` | Reusable components: `TopNavBar`, `OperationCard`, `WalletCard`, `DataCard`, `MenuShortcutCard`, etc. |
 | `BancaRemotaApp.swift` | App entry point, authentication management, and theme preferences. |
 
+For a deeper technical breakdown (data flow, persistence, encryption, navigation model), see [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ---
 
 ## 🔄 Code source of truth
