@@ -1764,6 +1764,11 @@ struct AddKeyView: View {
         category.warning(forValue: value)
     }
 
+    /// Special categories own their label: it is fixed, not editable, and always wins over `label`.
+    private var effectiveLabel: String {
+        category.defaultLabel ?? label
+    }
+
     /// onAppear assigns `category`, which would fire the auto-label onChange and clobber
     /// the label of the key being edited. Skip that first programmatic change.
     @State private var didLoadInitialValues = false
@@ -1774,7 +1779,17 @@ struct AddKeyView: View {
                 Section(header: Text("Detalles de la Clave"), footer: Text(category.isSpecial
                     ? "Clave especial: la app la copia sola al portapapeles cuando ejecutas la operación de autenticación de ese banco. Solo puede existir una de cada tipo."
                     : "")) {
-                    TextField("Etiqueta (ej: PIN BPA)", text: $label)
+                    if category.isSpecial {
+                        HStack {
+                            Text("Etiqueta")
+                            Spacer()
+                            Text(effectiveLabel)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        TextField("Etiqueta (ej: PIN BPA)", text: $label)
+                    }
+
                     TextField("Clave / Contraseña", text: $value)
                         .keyboardType(category.maxPinLength != nil ? .numberPad : .default)
 
@@ -1812,7 +1827,7 @@ struct AddKeyView: View {
                 leading: Button("Cancelar") { presentationMode.wrappedValue.dismiss() },
                 trailing: Button("Guardar") {
                     guard userData.canUseSpecialCategory(category, excluding: keyToEdit?.id) else { return }
-                    let newKey = UserKey(id: keyToEdit?.id ?? UUID(), label: label, value: value, category: category, customCategory: category == .other ? customCategory : nil, group: group)
+                    let newKey = UserKey(id: keyToEdit?.id ?? UUID(), label: effectiveLabel, value: value, category: category, customCategory: category == .other ? customCategory : nil, group: group)
                     if let index = UserDataManager.shared.userKeys.firstIndex(where: { $0.id == keyToEdit?.id }) {
                         UserDataManager.shared.userKeys[index] = newKey
                     } else {
@@ -1820,7 +1835,7 @@ struct AddKeyView: View {
                     }
                     presentationMode.wrappedValue.dismiss()
                 }
-                .disabled(label.isEmpty || value.isEmpty || (category == .other && customCategory.isEmpty) || !isCategoryAvailable)
+                .disabled(effectiveLabel.isEmpty || value.isEmpty || (category == .other && customCategory.isEmpty) || !isCategoryAvailable)
             )
             .onAppear {
                 if let edit = keyToEdit {
@@ -1835,16 +1850,13 @@ struct AddKeyView: View {
         }
     }
 
-    /// Special categories carry their own label ("BancaRemota (BPA)"). Fill it in on selection,
-    /// and clear it again if the user leaves the category without having typed their own.
+    /// A special category supplies its own fixed label through `effectiveLabel`, so nothing to fill in.
+    /// Leaving one only has to drop that fixed label so the editable field does not start out with it.
     private func applyDefaultLabel(for newCategory: KeyCategory) {
-        let previousDefaults = KeyCategory.allCases.compactMap { $0.defaultLabel }
+        guard newCategory.defaultLabel == nil else { return }
 
-        if let defaultLabel = newCategory.defaultLabel {
-            if label.isEmpty || previousDefaults.contains(label) {
-                label = defaultLabel
-            }
-        } else if previousDefaults.contains(label) {
+        let specialLabels = KeyCategory.allCases.compactMap { $0.defaultLabel }
+        if specialLabels.contains(label) {
             label = ""
         }
     }
