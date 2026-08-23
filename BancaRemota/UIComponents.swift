@@ -209,6 +209,37 @@ struct BankSelectionCard: View {
     }
 }
 
+// MARK: - Toast Banner
+struct ToastBannerView: View {
+    @ObservedObject private var toastCenter = ToastCenter.shared
+
+    var body: some View {
+        VStack {
+            if let toast = toastCenter.current {
+                HStack(spacing: 10) {
+                    Image(systemName: toast.iconName)
+                        .font(.system(size: 16, weight: .bold))
+                    Text(toast.message)
+                        .font(.system(size: 14, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundColor(toast.isWarning ? .orange : .appPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(14)
+                .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 4)
+                .padding(.horizontal)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            Spacer()
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: toastCenter.current)
+        .allowsHitTesting(false)
+    }
+}
+
 // MARK: - Menu Shortcut Card
 struct MenuShortcutCard: View {
     let iconName: String
@@ -361,9 +392,9 @@ struct DataCard: View {
             .padding()
             .background(Color(UIColor.secondarySystemBackground))
             .cornerRadius(16)
-            // .offset(x: isSwiped ? -130 : (userData.activeSwipeID == id ? offset : 0)) // COMENTADO: Desplazamiento de la tarjeta
+            // .offset(x: isSwiped ? -130 : (userData.activeSwipeID == id ? offset : 0)) // DISABLED: card offset
             .contentShape(Rectangle())
-            /* // COMENTADO: Gesto de arrastre
+            /* // DISABLED: drag gesture
             .gesture(
                 DragGesture()
                     .onChanged { value in

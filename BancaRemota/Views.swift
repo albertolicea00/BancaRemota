@@ -221,7 +221,7 @@ struct BankSelectionView: View {
                                         BankSelectionCard(bank: bank) {
                                             if useBanksAsLogin,
                                                let authOp = bank.categories.flatMap({ $0.operations }).first(where: { $0.isLogin == true }) {
-                                                CallService.shared.executeUSSD(code: authOp.ussdCode)
+                                                OperationRunner.shared.run(authOp, bankId: bank.id)
                                             } else {
                                                 onSelectBank(bank)
                                             }
@@ -238,7 +238,7 @@ struct BankSelectionView: View {
                                             BankSelectionCard(bank: bank) {
                                                 if useBanksAsLogin,
                                                    let authOp = bank.categories.flatMap({ $0.operations }).first(where: { $0.isLogin == true }) {
-                                                    CallService.shared.executeUSSD(code: authOp.ussdCode)
+                                                    OperationRunner.shared.run(authOp, bankId: bank.id)
                                                 } else {
                                                     onSelectBank(bank)
                                                 }
@@ -266,7 +266,7 @@ struct BankSelectionView: View {
                                         let theme = Color.appPrimary
                                         let textColor = Color.white
                                         OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor) {
-                                            CallService.shared.executeUSSD(code: fav.operation.ussdCode)
+                                            OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
                                         }
                                         .onDrag {
                                             self.draggedItem = fav
@@ -356,8 +356,8 @@ struct OperationsListView: View {
                                 VStack(spacing: 12) {
                                     ForEach(category.operations) { operation in
                                         OperationCard(operation: operation, themeColor: bank.themeColor, textColor: bank.textColor) {
-                                            // Execute USSD trigger
-                                            CallService.shared.executeUSSD(code: operation.ussdCode)
+                                            // Prepare whatever the USSD will ask for (if any), then dial
+                                            OperationRunner.shared.run(operation, bankId: bank.id)
                                         }
                                     }
                                 }
@@ -708,7 +708,8 @@ struct ConfigView: View {
     
     @AppStorage("useCustomFavoriteColor") private var useCustomFavoriteColor = true
     @AppStorage("favoriteCustomColorHex") private var favoriteCustomColorHex = "B38B4D"
-    
+    @AppStorage("authKeyCopyMode") private var authKeyCopyMode: Int = AuthKeyCopyMode.copyAndNotify.rawValue
+
     @State private var pendingAuthEnabled: Bool = false
     @State private var selectedFavoriteColor: Color = .appPrimary
     
@@ -769,6 +770,14 @@ struct ConfigView: View {
                     //     .disabled(!showBanksInFavorites)
                 }
                 
+                Section(header: Text("Autenticación en el banco"), footer: Text("Al ejecutar una operación de autenticación, la app copia al portapapeles la clave especial de ese banco (categorías «BancaRemota (…)» en Mis Claves) para que la pegues cuando el USSD la pida. La copia se borra sola a los 2 minutos y no se sincroniza con otros dispositivos.")) {
+                    Picker("Clave al autenticarse", selection: $authKeyCopyMode) {
+                        ForEach(AuthKeyCopyMode.allCases) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    }
+                }
+
                 Section(header: Text("Seguridad y Autenticación"), footer: Text("Protege el acceso a la aplicación usando la seguridad nativa de tu dispositivo (Face ID, Touch ID o Código).")) {
                     Toggle("Requerir Autenticación", isOn: $pendingAuthEnabled)
                     
@@ -1738,24 +1747,37 @@ struct AddKeyView: View {
     @State private var category: KeyCategory = .bank
     @State private var customCategory = ""
     @State private var group = ""
-    
+
+    @ObservedObject private var userData = UserDataManager.shared
+
+    /// Special categories hold a single key: hide the ones already taken by another key.
+    private var availableCategories: [KeyCategory] {
+        KeyCategory.allCases.filter { userData.canUseSpecialCategory($0, excluding: keyToEdit?.id) }
+    }
+
+    private var isCategoryAvailable: Bool {
+        userData.canUseSpecialCategory(category, excluding: keyToEdit?.id)
+    }
+
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Detalles de la Clave")) {
+                Section(header: Text("Detalles de la Clave"), footer: Text(category.isSpecial
+                    ? "Clave especial: la app la copia sola al portapapeles cuando ejecutas la operación de autenticación de ese banco. Solo puede existir una de cada tipo."
+                    : "")) {
                     TextField("Etiqueta (ej: PIN BPA)", text: $label)
                     TextField("Clave / Contraseña", text: $value)
                     Picker("Categoría", selection: $category) {
-                        ForEach(KeyCategory.allCases, id: \.self) { cat in
+                        ForEach(availableCategories, id: \.self) { cat in
                             Text(cat.rawValue).tag(cat)
                         }
                     }
-                    
+
                     if category == .other {
                         TextField("¿Qué tipo de clave es?", text: $customCategory)
                     }
                 }
-                
+
                 Section(header: Text("Organización")) {
                     TextField("Nombre del Grupo (opcional)", text: $group)
                 }
@@ -1764,6 +1786,7 @@ struct AddKeyView: View {
             .navigationBarItems(
                 leading: Button("Cancelar") { presentationMode.wrappedValue.dismiss() },
                 trailing: Button("Guardar") {
+                    guard userData.canUseSpecialCategory(category, excluding: keyToEdit?.id) else { return }
                     let newKey = UserKey(id: keyToEdit?.id ?? UUID(), label: label, value: value, category: category, customCategory: category == .other ? customCategory : nil, group: group)
                     if let index = UserDataManager.shared.userKeys.firstIndex(where: { $0.id == keyToEdit?.id }) {
                         UserDataManager.shared.userKeys[index] = newKey
@@ -1772,7 +1795,7 @@ struct AddKeyView: View {
                     }
                     presentationMode.wrappedValue.dismiss()
                 }
-                .disabled(label.isEmpty || value.isEmpty || (category == .other && customCategory.isEmpty))
+                .disabled(label.isEmpty || value.isEmpty || (category == .other && customCategory.isEmpty) || !isCategoryAvailable)
             )
             .onAppear {
                 if let edit = keyToEdit {

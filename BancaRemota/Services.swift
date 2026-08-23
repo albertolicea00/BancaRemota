@@ -2,6 +2,7 @@ import CryptoKit
 import SwiftUI
 import Network
 import CoreTelephony
+import UniformTypeIdentifiers
 
 let AppVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 let AppBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -9,25 +10,35 @@ let AppBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
 // MARK: - Data Management Service
 class DataService {
     static let shared = DataService()
-    
+
+    private var cachedConfig: BankConfig?
+
     private init() {}
-    
+
     /// Loads the bank configuration from the bundled codes.json file
     func loadConfiguration() -> BankConfig? {
+        if let cachedConfig = cachedConfig { return cachedConfig }
+
         guard let url = Bundle.main.url(forResource: "codes", withExtension: "json") else {
             print("Error: Could not locate codes.json in bundle.")
             return nil
         }
-        
+
         do {
             let data = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             let config = try decoder.decode(BankConfig.self, from: data)
+            cachedConfig = config
             return config
         } catch {
             print("Error: Failed to parse codes.json: \(error)")
             return nil
         }
+    }
+
+    /// Bank lookup by id, for the services that only carry a bankId (favorites, operation runner).
+    func bank(id: String) -> Bank? {
+        loadConfiguration()?.banks.first { $0.id == id }
     }
 }
 
@@ -138,7 +149,7 @@ class CellularMonitor: ObservableObject {
     
     @objc private func updateCellularStatus() {
         DispatchQueue.main.async {
-            // Verificar si hay alguna tecnología de radio celular activa
+            // Check whether any cellular radio technology is currently active
             guard let techDict = self.telephonyInfo.serviceCurrentRadioAccessTechnology,
                   let tech = techDict.values.first, !tech.isEmpty else {
                 self.hasService = false
@@ -196,6 +207,117 @@ class CallService {
             }
         } else {
             print("Error: Cannot open tel:// URL on this device (Simulator or restricted).")
+        }
+    }
+}
+
+// MARK: - Clipboard Service
+class ClipboardService {
+    static let shared = ClipboardService()
+
+    private init() {}
+
+    /// Copies a secret (PIN, password, card number). Never leaves the device via Universal Clipboard
+    /// and the system drops it after `expiresIn` so it does not sit in the pasteboard forever.
+    func copySensitive(_ value: String, expiresIn: TimeInterval = 120) {
+        UIPasteboard.general.setItems(
+            [[UTType.utf8PlainText.identifier: value]],
+            options: [
+                .localOnly: true,
+                .expirationDate: Date().addingTimeInterval(expiresIn)
+            ]
+        )
+    }
+}
+
+// MARK: - In-App Toast Notifications
+class ToastCenter: ObservableObject {
+    static let shared = ToastCenter()
+
+    struct Toast: Equatable, Identifiable {
+        let id = UUID()
+        let message: String
+        let iconName: String
+        let isWarning: Bool
+    }
+
+    @Published var current: Toast?
+
+    private var dismissWorkItem: DispatchWorkItem?
+
+    private init() {}
+
+    func show(_ message: String, iconName: String = "doc.on.clipboard.fill", isWarning: Bool = false, duration: TimeInterval = 2.5) {
+        DispatchQueue.main.async {
+            self.dismissWorkItem?.cancel()
+            self.current = Toast(message: message, iconName: iconName, isWarning: isWarning)
+
+            let work = DispatchWorkItem { [weak self] in
+                self?.current = nil
+            }
+            self.dismissWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
+        }
+    }
+}
+
+// MARK: - Operation Prefill + Runner
+/// The piece of saved user data a USSD session will ask for once the dialer is open.
+/// Single extension point for the upcoming flows (transfer -> card, utility bills -> bill number, nauta -> account).
+enum OperationPrefill: Equatable {
+    case none
+    /// The bank's special key (KeyCategory.appBPA / .appBANDEC / .appBM).
+    case authKey
+    /// Not wired yet: a BankAccount card number picker before dialing.
+    case cardNumber
+    /// Not wired yet: a Bill picker before dialing.
+    case bill(BillType)
+    /// Not wired yet: a NautaAccount picker before dialing.
+    case nautaAccount
+}
+
+/// Every USSD launch in the app goes through here instead of calling CallService directly,
+/// so the "prepare the data the USSD will ask for, then dial" step has one owner.
+class OperationRunner {
+    static let shared = OperationRunner()
+
+    private init() {}
+
+    func run(_ operation: BankOperation, bankId: String) {
+        switch prefill(for: operation) {
+        case .authKey:
+            prepareAuthKey(bankId: bankId)
+        case .cardNumber, .bill, .nautaAccount:
+            // TODO: present the corresponding picker sheet and copy the chosen value before dialing.
+            break
+        case .none:
+            break
+        }
+
+        CallService.shared.executeUSSD(code: operation.ussdCode)
+    }
+
+    /// Central resolver: decides what a given operation needs.
+    /// Today it is driven by `isLogin`; the other cases will be driven by new fields in codes.json.
+    func prefill(for operation: BankOperation) -> OperationPrefill {
+        if operation.isLogin == true { return .authKey }
+        return .none
+    }
+
+    private func prepareAuthKey(bankId: String) {
+        let mode = AuthKeyCopyMode(rawValue: UserDefaults.standard.integer(forKey: "authKeyCopyMode")) ?? .copyAndNotify
+        guard mode != .disabled else { return }
+        guard let category = KeyCategory.special(forBankId: bankId) else { return }
+
+        let bankName = DataService.shared.bank(id: bankId)?.shortName ?? bankId.uppercased()
+
+        // No key stored for this bank: dial silently, no error and no notification.
+        guard let key = UserDataManager.shared.userKeys.first(where: { $0.category == category }) else { return }
+
+        ClipboardService.shared.copySensitive(key.value)
+
+        if mode == .copyAndNotify {
+            ToastCenter.shared.show("Clave de \(bankName) copiada al portapapeles")
         }
     }
 }
@@ -295,6 +417,19 @@ class UserDataManager: ObservableObject {
         }
     }
     
+    // MARK: - Special Keys (one per bank)
+    /// The single key stored under the special category of that bank, if any.
+    func specialKey(forBankId bankId: String) -> UserKey? {
+        guard let category = KeyCategory.special(forBankId: bankId) else { return nil }
+        return userKeys.first { $0.category == category }
+    }
+
+    /// False when another key already occupies that special category.
+    func canUseSpecialCategory(_ category: KeyCategory, excluding id: UUID?) -> Bool {
+        guard category.isSpecial else { return true }
+        return !userKeys.contains { $0.category == category && $0.id != id }
+    }
+
     func createBackup(includeNauta: Bool, includeBanks: Bool, includeBills: Bool, includeKeys: Bool) -> URL? {
         let backup = UserBackup(
             nautaAccounts: includeNauta ? nautaAccounts : nil,

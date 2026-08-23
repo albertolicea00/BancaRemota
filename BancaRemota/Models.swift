@@ -207,12 +207,53 @@ enum KeyCategory: String, Codable, CaseIterable {
     case bank = "Banco"
     case nauta = "Nauta"
     case other = "Otros"
-    
+    // Special categories: only ONE key may exist per category.
+    // These are the ones the app auto-copies when running the bank's authentication operation.
+    case appBPA = "BancaRemota (BPA)"
+    case appBANDEC = "BancaRemota (BANDEC)"
+    case appBM = "BancaRemota (BM)"
+
     var iconName: String {
         switch self {
         case .bank: return "creditcard.and.123"
         case .nauta: return "wifi"
         case .other: return "key.fill"
+        case .appBPA, .appBANDEC, .appBM: return "checkmark.seal.fill"
+        }
+    }
+
+    /// codes.json bank id this special category is bound to. nil for regular categories.
+    var bankId: String? {
+        switch self {
+        case .appBPA: return "bpa"
+        case .appBANDEC: return "bandec"
+        case .appBM: return "bm"
+        case .bank, .nauta, .other: return nil
+        }
+    }
+
+    /// Special category => unique per bank, tied to one specific bank.
+    var isSpecial: Bool { bankId != nil }
+
+    static func special(forBankId bankId: String) -> KeyCategory? {
+        allCases.first { $0.bankId == bankId }
+    }
+}
+
+// MARK: - Auto-copy Behaviour (Settings)
+/// What the app does when an operation needs a stored value (for now, the authentication key).
+enum AuthKeyCopyMode: Int, CaseIterable, Identifiable {
+    case copyAndNotify = 0
+    case copyOnly = 1
+    case disabled = 2
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .copyAndNotify: return "Copiar y avisar"
+        case .copyOnly: return "Copiar sin aviso"
+        case .disabled: return "No copiar"
         }
     }
 }

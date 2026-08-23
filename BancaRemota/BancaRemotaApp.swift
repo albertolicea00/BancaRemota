@@ -43,6 +43,9 @@ struct BancaRemotaApp: App {
                     }
                     .preferredColorScheme(darkModePreference == 1 ? .light : (darkModePreference == 2 ? .dark : nil))
                 }
+
+                // In-app notifications (key copied, etc.)
+                ToastBannerView()
             }
         }
         .onChange(of: scenePhase) { newPhase in
