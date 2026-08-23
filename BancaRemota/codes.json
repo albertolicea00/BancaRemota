@@ -32,7 +32,7 @@
         {
           "name": "PAGOS Y RECARGAS",
           "operations": [
-            { "id": "op_4", "name": "Transferencia", "description": "Transferir hacia otra tarjeta", "iconName": "arrow.up.right.square", "ussdCode": "*444*45#", "isDefaultFavorite": true },
+            { "id": "op_4", "name": "Transferencia", "description": "Transferir hacia otra tarjeta", "iconName": "arrow.up.right.square", "ussdCode": "*444*45#", "prefill": "cardNumber", "isDefaultFavorite": true },
             { "id": "op_6", "name": "Electricidad", "description": "Pagar factura de electricidad", "iconName": "bolt", "ussdCode": "*444*41#", "prefill": "bill.electricity", "isDefaultFavorite": true },
             { "id": "op_7", "name": "Teléfono", "description": "Pagar factura telefónica", "iconName": "phone", "ussdCode": "*444*42#", "prefill": "bill.telephone", "isDefaultFavorite": true },
             { "id": "op_8", "name": "ONAT", "description": "Pagar ONAT", "iconName": "doc.plaintext", "ussdCode": "*444*43#" },
@@ -41,7 +41,7 @@
             { "id": "op_21", "name": "Recargar Nauta", "description": "Recargue su cuenta Nauta", "iconName": "wifi", "ussdCode": "*444*59#", "prefill": "nautaAccount", "isDefaultFavorite": true },
             { "id": "op_22", "name": "Giro Postal", "description": "Enviar/Consultar giros", "iconName": "envelope", "ussdCode": "*444*64#" },
             { "id": "op_23", "name": "Pagar Gas", "description": "Pagar la factura del gas", "iconName": "flame", "ussdCode": "*444*67#", "prefill": "bill.gas" },
-            { "id": "op_26", "name": "Recargar móvil", "description": "Recarga saldo celular", "iconName": "iphone", "ussdCode": "*444*54#", "isDefaultFavorite": true },
+            { "id": "op_26", "name": "Recargar Móvil", "description": "Recarga saldo celular", "iconName": "iphone", "ussdCode": "*444*54#", "prefill": "contactPhone", "isDefaultFavorite": true },
             { "id": "op_33", "name": "Recargar Joven Club", "description": "Transferir a Joven Club", "iconName": "desktopcomputer", "ussdCode": "*444*93#" },
             { "id": "op_37", "name": "Pago Nauta Hogar", "description": "Pagar servicio Nauta Hogar", "iconName": "house", "ussdCode": "*444*84#", "isDefaultFavorite": true },
             { "id": "op_39", "name": "Recarga propia", "description": "Recargar tarjeta propia", "iconName": "plus.circle", "ussdCode": "*444*77#" },
@@ -101,7 +101,7 @@
         {
           "name": "PAGOS Y RECARGAS",
           "operations": [
-            { "id": "op_4", "name": "Transferencia", "description": "Transferir hacia otra tarjeta", "iconName": "arrow.up.right.square", "ussdCode": "*444*45#"},
+            { "id": "op_4", "name": "Transferencia", "description": "Transferir hacia otra tarjeta", "iconName": "arrow.up.right.square", "ussdCode": "*444*45#", "prefill": "cardNumber"},
             { "id": "op_6", "name": "Electricidad", "description": "Pagar factura de electricidad", "iconName": "bolt", "ussdCode": "*444*41#", "prefill": "bill.electricity"},
             { "id": "op_7", "name": "Teléfono", "description": "Pagar factura telefónica", "iconName": "phone", "ussdCode": "*444*42#", "prefill": "bill.telephone"},
             { "id": "op_8", "name": "ONAT", "description": "Pagar ONAT", "iconName": "doc.plaintext", "ussdCode": "*444*43#" },
@@ -110,7 +110,7 @@
             { "id": "op_21", "name": "Recargar Nauta", "description": "Recargue su cuenta Nauta", "iconName": "wifi", "ussdCode": "*444*59#", "prefill": "nautaAccount"},
             { "id": "op_22", "name": "Giro Postal", "description": "Enviar/Consultar giros", "iconName": "envelope", "ussdCode": "*444*64#" },
             { "id": "op_23", "name": "Pagar Gas", "description": "Pagar la factura del gas", "iconName": "flame", "ussdCode": "*444*67#", "prefill": "bill.gas" },
-            { "id": "op_26", "name": "Recargar móvil", "description": "Recarga saldo celular", "iconName": "iphone", "ussdCode": "*444*54#"},
+            { "id": "op_26", "name": "Recargar móvil", "description": "Recarga saldo celular", "iconName": "iphone", "ussdCode": "*444*54#", "prefill": "contactPhone"},
             { "id": "op_33", "name": "Recargar Joven Club", "description": "Transferir a Joven Club", "iconName": "desktopcomputer", "ussdCode": "*444*93#" },
             { "id": "op_37", "name": "Pago Nauta Hogar", "description": "Pagar servicio Nauta Hogar", "iconName": "house", "ussdCode": "*444*84#"},
             { "id": "op_39", "name": "Recarga propia", "description": "Recargar tarjeta propia", "iconName": "plus.circle", "ussdCode": "*444*77#" },
@@ -171,7 +171,7 @@
         {
           "name": "PAGOS Y RECARGAS",
           "operations": [
-            { "id": "op_4", "name": "Transferencia", "description": "Transferir hacia otra tarjeta", "iconName": "arrow.up.right.square", "ussdCode": "*444*45#"},
+            { "id": "op_4", "name": "Transferencia", "description": "Transferir hacia otra tarjeta", "iconName": "arrow.up.right.square", "ussdCode": "*444*45#", "prefill": "cardNumber"},
             { "id": "op_6", "name": "Electricidad", "description": "Pagar factura de electricidad", "iconName": "bolt", "ussdCode": "*444*41#", "prefill": "bill.electricity"},
             { "id": "op_7", "name": "Teléfono", "description": "Pagar factura telefónica", "iconName": "phone", "ussdCode": "*444*42#", "prefill": "bill.telephone"},
             { "id": "op_8", "name": "ONAT", "description": "Pagar ONAT", "iconName": "doc.plaintext", "ussdCode": "*444*43#" },
@@ -180,7 +180,7 @@
             { "id": "op_21", "name": "Recargar Nauta", "description": "Recargue su cuenta Nauta", "iconName": "wifi", "ussdCode": "*444*59#", "prefill": "nautaAccount"},
             { "id": "op_22", "name": "Giro Postal", "description": "Enviar/Consultar giros", "iconName": "envelope", "ussdCode": "*444*64#" },
             { "id": "op_23", "name": "Pagar Gas", "description": "Pagar la factura del gas", "iconName": "flame", "ussdCode": "*444*67#", "prefill": "bill.gas" },
-            { "id": "op_26", "name": "Recargar móvil", "description": "Recarga saldo celular", "iconName": "iphone", "ussdCode": "*444*54#"},
+            { "id": "op_26", "name": "Recargar móvil", "description": "Recarga saldo celular", "iconName": "iphone", "ussdCode": "*444*54#", "prefill": "contactPhone"},
             { "id": "op_33", "name": "Recargar Joven Club", "description": "Transferir a Joven Club", "iconName": "desktopcomputer", "ussdCode": "*444*93#" },
             { "id": "op_37", "name": "Pago Nauta Hogar", "description": "Pagar servicio Nauta Hogar", "iconName": "house", "ussdCode": "*444*84#"},
             { "id": "op_39", "name": "Recarga propia", "description": "Recargar tarjeta propia", "iconName": "plus.circle", "ussdCode": "*444*77#" },

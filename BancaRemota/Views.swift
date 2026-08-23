@@ -718,6 +718,8 @@ struct ConfigView: View {
     @AppStorage("authKeyCopyMode") private var authKeyCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
     @AppStorage("billCopyMode") private var billCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
     @AppStorage("nautaCopyMode") private var nautaCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("cardCopyMode") private var cardCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
+    @AppStorage("contactCopyMode") private var contactCopyMode: Int = PrefillCopyMode.copyAndNotify.rawValue
 
     @State private var pendingAuthEnabled: Bool = false
     @State private var selectedFavoriteColor: Color = .appPrimary
@@ -797,6 +799,22 @@ struct ConfigView: View {
 
                 Section(header: Text("Recarga Nauta"), footer: Text("Al recargar Nauta, la app lista tus cuentas Nauta guardadas para copiar el usuario al portapapeles antes de marcar.")) {
                     Picker("Cuentas guardadas", selection: $nautaCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Transferencias"), footer: Text("Al transferir, la app lista tus tarjetas guardadas para copiar el número al portapapeles antes de marcar.")) {
+                    Picker("Tarjetas guardadas", selection: $cardCopyMode) {
+                        ForEach(PrefillCopyMode.allCases) { mode in
+                            Text(mode.pickerLabel).tag(mode.rawValue)
+                        }
+                    }
+                }
+
+                Section(header: Text("Recarga de móvil"), footer: Text("Al recargar un móvil, la app lista tus contactos dentro de la propia app, con buscador, para copiar el número antes de marcar. Requiere permiso de Contactos; se leen solo en ese momento, no se guardan ni se envían a ningún sitio.")) {
+                    Picker("Contactos del teléfono", selection: $contactCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
                             Text(mode.pickerLabel).tag(mode.rawValue)
                         }

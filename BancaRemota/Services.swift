@@ -3,6 +3,7 @@ import SwiftUI
 import Network
 import CoreTelephony
 import UniformTypeIdentifiers
+import Contacts
 
 let AppVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 let AppBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -236,6 +237,88 @@ class ClipboardService {
     }
 }
 
+// MARK: - Contacts Service
+/// Reads the address book so the app can render its own contact list instead of the system picker.
+/// This needs full read access (NSContactsUsageDescription); nothing is stored or sent anywhere.
+class ContactsService {
+    static let shared = ContactsService()
+
+    private let store = CNContactStore()
+
+    private init() {}
+
+    var authorizationStatus: CNAuthorizationStatus {
+        CNContactStore.authorizationStatus(for: .contacts)
+    }
+
+    /// Requests access if needed, then loads every phone number as a selectable option.
+    /// Calls back on the main queue with an empty array when access is refused or nothing is stored.
+    func loadPhoneOptions(completion: @escaping ([PrefillOption]) -> Void) {
+        switch authorizationStatus {
+        case .authorized:
+            fetch(completion: completion)
+        case .notDetermined:
+            store.requestAccess(for: .contacts) { granted, _ in
+                if granted {
+                    self.fetch(completion: completion)
+                } else {
+                    DispatchQueue.main.async { completion([]) }
+                }
+            }
+        default:
+            DispatchQueue.main.async { completion([]) }
+        }
+    }
+
+    private func fetch(completion: @escaping ([PrefillOption]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let keys: [CNKeyDescriptor] = [
+                CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
+                CNContactPhoneNumbersKey as CNKeyDescriptor
+            ]
+            let request = CNContactFetchRequest(keysToFetch: keys)
+            request.sortOrder = .givenName
+
+            var options: [PrefillOption] = []
+
+            do {
+                try self.store.enumerateContacts(with: request) { contact, _ in
+                    let name = CNContactFormatter.string(from: contact, style: .fullName) ?? ""
+
+                    for phone in contact.phoneNumbers {
+                        let number = Self.normalize(phone.value.stringValue)
+                        guard !number.isEmpty else { continue }
+
+                        let phoneLabel = phone.label.map { CNLabeledValue<NSString>.localizedString(forLabel: $0) } ?? ""
+                        options.append(PrefillOption(
+                            id: UUID(),
+                            label: name.isEmpty ? number : name,
+                            value: number,
+                            detail: phoneLabel,
+                            iconName: "person.crop.circle"
+                        ))
+                    }
+                }
+            } catch {
+                print("Contacts: failed to enumerate contacts: \(error)")
+            }
+
+            DispatchQueue.main.async { completion(options) }
+        }
+    }
+
+    /// USSD prompts take bare digits. Strips formatting and the Cuban country code so a stored
+    /// "+53 5 123 4567" is copied as the 8-digit "51234567" the recharge menu expects.
+    static func normalize(_ rawNumber: String) -> String {
+        let digits = rawNumber.filter { $0.isASCII && $0.isNumber }
+
+        if digits.count == 10, digits.hasPrefix("53") {
+            return String(digits.dropFirst(2))
+        }
+        return digits
+    }
+}
+
 // MARK: - In-App Toast Notifications
 class ToastCenter: ObservableObject {
     static let shared = ToastCenter()
@@ -276,10 +359,12 @@ enum OperationPrefill: Equatable {
     case authKey
     /// A saved service bill of this type, chosen from a picker before dialing.
     case bill(BillType)
-    /// Not wired yet: a BankAccount card number picker before dialing.
-    case cardNumber
-    /// Not wired yet: a NautaAccount picker before dialing.
+    /// A saved Nauta account, chosen from a picker before dialing.
     case nautaAccount
+    /// A phone number from the device address book, chosen from a searchable picker before dialing.
+    case contactPhone
+    /// A saved card number, chosen from a picker before dialing.
+    case cardNumber
 
     /// Parses the `prefill` field of codes.json. Unknown identifiers resolve to nil (treated as `.none`).
     init?(identifier: String) {
@@ -287,6 +372,7 @@ enum OperationPrefill: Equatable {
         case "authKey": self = .authKey
         case "cardNumber": self = .cardNumber
         case "nautaAccount": self = .nautaAccount
+        case "contactPhone": self = .contactPhone
         default:
             guard identifier.hasPrefix("bill."),
                   let type = BillType.fromPrefillIdentifier(String(identifier.dropFirst("bill.".count))) else {
@@ -327,6 +413,8 @@ struct PrefillSelectionRequest: Identifiable {
     let operation: BankOperation
     /// UserDefaults key of the PrefillCopyMode governing this flow.
     let modeKey: String
+    /// Shows a search field. Worth it for the address book, noise for a handful of saved records.
+    var isSearchable: Bool = false
 }
 
 /// Every USSD launch in the app goes through here instead of calling CallService directly,
@@ -352,9 +440,10 @@ class OperationRunner: ObservableObject {
             if requestBillSelection(type: type, operation: operation) { return }
         case .nautaAccount:
             if requestNautaSelection(operation: operation) { return }
+        case .contactPhone:
+            if requestContactSelection(operation: operation) { return }
         case .cardNumber:
-            // TODO: present the corresponding picker sheet and copy the chosen value before dialing.
-            break
+            if requestCardSelection(operation: operation) { return }
         case .none:
             break
         }
@@ -395,11 +484,11 @@ class OperationRunner: ObservableObject {
 
     // MARK: Picker flows
     /// Returns true when the picker was shown, meaning the caller must not dial yet.
-    private func requestSelection(title: String, options: [PrefillOption], operation: BankOperation, modeKey: String) -> Bool {
+    private func requestSelection(title: String, options: [PrefillOption], operation: BankOperation, modeKey: String, isSearchable: Bool = false) -> Bool {
         guard mode(forKey: modeKey) != .disabled else { return false }
         guard !options.isEmpty else { return false }
 
-        pendingSelection = PrefillSelectionRequest(title: title, options: options, operation: operation, modeKey: modeKey)
+        pendingSelection = PrefillSelectionRequest(title: title, options: options, operation: operation, modeKey: modeKey, isSearchable: isSearchable)
         return true
     }
 
@@ -423,6 +512,55 @@ class OperationRunner: ObservableObject {
         }
 
         return requestSelection(title: operation.name, options: options, operation: operation, modeKey: "nautaCopyMode")
+    }
+
+    private func requestCardSelection(operation: BankOperation) -> Bool {
+        let options = UserDataManager.shared.bankAccounts.map { account in
+            PrefillOption(
+                id: account.id,
+                label: account.label.isEmpty ? account.name : account.label,
+                value: account.cardNumber,
+                detail: [account.name, account.group].filter { !$0.isEmpty }.joined(separator: " · "),
+                iconName: "creditcard.fill"
+            )
+        }
+
+        return requestSelection(title: operation.name, options: options, operation: operation, modeKey: "cardCopyMode")
+    }
+
+    /// Contacts cannot be read synchronously, so this always takes ownership of the dialing:
+    /// it returns true and either presents the picker or dials once the address book resolves.
+    private func requestContactSelection(operation: BankOperation) -> Bool {
+        let mode = self.mode(forKey: "contactCopyMode")
+        guard mode != .disabled else { return false }
+
+        let wasDenied = ContactsService.shared.authorizationStatus == .denied
+
+        ContactsService.shared.loadPhoneOptions { options in
+            if options.isEmpty {
+                // Access refused or address book empty: the user gets no picker, so say why
+                // when it is something they can act on, then dial anyway.
+                if wasDenied && mode == .copyAndNotify {
+                    ToastCenter.shared.show(
+                        "Sin acceso a Contactos. Actívalo en Ajustes › Banca Remota.",
+                        iconName: "exclamationmark.triangle.fill",
+                        isWarning: true
+                    )
+                }
+                CallService.shared.executeUSSD(code: operation.ussdCode)
+                return
+            }
+
+            self.pendingSelection = PrefillSelectionRequest(
+                title: operation.name,
+                options: options,
+                operation: operation,
+                modeKey: "contactCopyMode",
+                isSearchable: true
+            )
+        }
+
+        return true
     }
 
     /// Resolves the picker. `option == nil` is the "Ninguna" row: dial without copying anything.
