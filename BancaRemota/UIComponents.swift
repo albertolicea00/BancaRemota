@@ -277,6 +277,8 @@ struct DataCard: View {
     let subtitle: String?
     let value: String
     let iconName: String
+    /// Asset-catalog image used instead of the SF Symbol (e.g. a bank icon). Falls back to `iconName`.
+    var assetIconName: String? = nil
     let backgroundColor: Color
     var onEdit: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
@@ -336,10 +338,19 @@ struct DataCard: View {
                     Circle()
                         .fill(backgroundColor.opacity(0.15))
                         .frame(width: 50, height: 50)
-                    
-                    Image(systemName: iconName)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(backgroundColor)
+
+                    if let assetIconName = assetIconName {
+                        Image(assetIconName)
+                            .resizable()
+                            .renderingMode(.template)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                            .foregroundColor(backgroundColor)
+                    } else {
+                        Image(systemName: iconName)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(backgroundColor)
+                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {

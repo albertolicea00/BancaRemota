@@ -1490,13 +1490,16 @@ struct KeysListView: View {
                                 .foregroundColor(.secondary)) {
 
                                 ForEach(grouped[groupName] ?? []) { key in
+                                    // Special keys wear their bank's icon and colour instead of the global accent.
+                                    let bank = key.category.bankId.flatMap { DataService.shared.bank(id: $0) }
                                     DataCard(
                                         id: key.id,
                                         title: key.label,
                                         subtitle: key.category == .other ? (key.customCategory ?? "Otros") : key.category.displayName,
                                         value: key.value,
                                         iconName: key.category.iconName,
-                                        backgroundColor: .appPrimary,
+                                        assetIconName: bank?.iconImg,
+                                        backgroundColor: bank?.themeColor ?? .appPrimary,
                                         onEdit: { keyToEdit = key },
                                         onDelete: {
                                             keyToDelete = key
