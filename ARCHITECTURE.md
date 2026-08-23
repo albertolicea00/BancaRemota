@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.5 · **Last commit documented:** `3948553`
+**Last updated:** 2026-08-23 · **Doc version:** 1.6 · **Last commit documented:** `c803b61`
 
 ---
 
@@ -178,7 +178,7 @@ Unlike the auth key, these flows **defer dialing** until the user picks. They sh
 
 1. A per-flow builder maps records to `[PrefillOption]` (`id`, `label`, `value`, `detail`, `iconName`) and calls `requestSelection(title:options:operation:modeKey:isSearchable:)`.
 2. That returns `false` — meaning "dial now" — when the flow's mode is `disabled` or **no matching record exists**, so an empty sheet never appears. Otherwise it publishes a `PrefillSelectionRequest` on `@Published var pendingSelection` and returns `true`, and `run` stops without dialing. `OperationRunner` is an `ObservableObject` purely for this.
-3. `MainView` presents `PrefillSelectionView` via `.sheet(item:)`. Rows copy and dial; the trailing "Ninguno, solo marcar" row dials without copying.
+3. `MainView` presents `PrefillSelectionView` via `.sheet(item:)`. Rows copy and dial; the "Ninguno, solo marcar" row dials without copying — placed **first**, under the search field, in searchable lists so it stays reachable without scrolling the address book, and last in short lists.
 4. `completeSelection(_:)` clears the request, copies through `ClipboardService.copySensitive`, optionally toasts (reading the mode from the request's own `modeKey`), then dials after a 0.35s delay so the sheet finishes dismissing before the system dialer prompt appears.
 
 | Flow | `codes.json` tag | Tagged ops | Source records | Mode key | Settings section |
