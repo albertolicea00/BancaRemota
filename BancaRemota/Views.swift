@@ -1578,11 +1578,22 @@ struct PrefillSelectionView: View {
     let request: PrefillSelectionRequest
     let onSelect: (PrefillOption?) -> Void
 
+    @State private var searchText = ""
+
+    private var visibleOptions: [PrefillOption] {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return request.options }
+
+        return request.options.filter {
+            $0.label.localizedCaseInsensitiveContains(query) || $0.value.contains(query)
+        }
+    }
+
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("Toca para copiar el dato guardado"), footer: Text("Queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
-                    ForEach(request.options) { option in
+                Section(header: Text("Toca para copiar al portapapeles"), footer: Text("Queda en el portapapeles listo para pegar cuando el USSD lo pida. Se borra solo a los 2 minutos.")) {
+                    ForEach(visibleOptions) { option in
                         Button(action: { onSelect(option) }) {
                             HStack(spacing: 14) {
                                 ZStack {
@@ -1618,6 +1629,11 @@ struct PrefillSelectionView: View {
                     }
                 }
 
+                if visibleOptions.isEmpty {
+                    Text("Sin resultados para «\(searchText)»")
+                        .foregroundColor(.secondary)
+                }
+
                 Section {
                     Button(action: { onSelect(nil) }) {
                         HStack {
@@ -1631,6 +1647,36 @@ struct PrefillSelectionView: View {
             .listStyle(.insetGrouped)
             .navigationTitle(request.title)
             .navigationBarTitleDisplayMode(.inline)
+            .modifier(SearchFieldIfNeeded(isSearchable: request.isSearchable, text: $searchText))
+        }
+        .modifier(PrefillSheetHeight(startsExpanded: request.isSearchable))
+    }
+}
+
+/// `.searchable` only when the list is long enough to justify it (the address book).
+private struct SearchFieldIfNeeded: ViewModifier {
+    let isSearchable: Bool
+    @Binding var text: String
+
+    func body(content: Content) -> some View {
+        if isSearchable {
+            content.searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: "Buscar contacto")
+        } else {
+            content
+        }
+    }
+}
+
+/// Half-height sheet the user can drag up to full screen. Contacts start expanded because
+/// the search field plus a long list needs the room. iOS 15 has no detents API: full sheet there.
+private struct PrefillSheetHeight: ViewModifier {
+    let startsExpanded: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.presentationDetents(startsExpanded ? [.large] : [.medium, .large])
+        } else {
+            content
         }
     }
 }
