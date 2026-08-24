@@ -307,16 +307,14 @@ struct BankSelectionView: View {
                         }
                         
                         Button(action: { isShowingAddFavorite = true }) {
-                            HStack {
-                                Image(systemName: "pencil.circle.fill")
+                            HStack(spacing: 4) {
+                                Image(systemName: "pencil")
                                 Text("Editar operaciones favoritas")
                             }
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.appPrimary)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(UIColor.secondarySystemBackground))
-                            .cornerRadius(12)
+                            .padding(.vertical, 8)
                         }
                         .padding(.horizontal)
                     }
