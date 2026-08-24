@@ -47,6 +47,21 @@ class DataService {
     func operation(id: String, bankId: String) -> BankOperation? {
         bank(id: bankId)?.categories.flatMap { $0.operations }.first { $0.id == id }
     }
+
+    /// USSD codes that dial to the exact same operation on every bank in `banks` — same code,
+    /// so it does the same thing over the network regardless of which bank's menu it came from.
+    func commonUssdCodes(in banks: [Bank]) -> Set<String> {
+        guard banks.count > 1 else { return [] }
+        var banksByCode: [String: Set<String>] = [:]
+        for bank in banks {
+            for category in bank.categories {
+                for operation in category.operations {
+                    banksByCode[operation.ussdCode, default: []].insert(bank.id)
+                }
+            }
+        }
+        return Set(banksByCode.filter { $0.value.count == banks.count }.keys)
+    }
 }
 
 import LocalAuthentication

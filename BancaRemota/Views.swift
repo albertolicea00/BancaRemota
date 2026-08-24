@@ -170,7 +170,25 @@ struct BankSelectionView: View {
     @ObservedObject private var favoritesManager = FavoritesManager.shared
     @State private var isShowingAddFavorite = false
     @State private var draggedItem: FavoriteOperation?
-    
+
+    /// USSD codes shared by every bank — these are shown once, with no bank badge.
+    private var commonUssdCodes: Set<String> {
+        DataService.shared.commonUssdCodes(in: banks)
+    }
+
+    /// Favorites to render: skips favorites for banks the user removed, and collapses duplicate entries for a common code down to the first one 
+    /// (legacy favorites may hold one per bank from before common codes were merged into a single entry).
+    private var displayedFavorites: [FavoriteOperation] {
+        var seenCommonCodes = Set<String>()
+        return favoritesManager.favoriteOperations.filter { fav in
+            guard banks.contains(where: { $0.id == fav.bankId }) else { return false }
+            guard commonUssdCodes.contains(fav.operation.ussdCode) else { return true }
+            guard !seenCommonCodes.contains(fav.operation.ussdCode) else { return false }
+            seenCommonCodes.insert(fav.operation.ussdCode)
+            return true
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, isHome: true)
@@ -268,22 +286,22 @@ struct BankSelectionView: View {
                         
                         if !favoritesManager.favoriteOperations.isEmpty {
                             LazyVStack(spacing: 12) {
-                                ForEach(favoritesManager.favoriteOperations) { fav in
-                                    if banks.contains(where: { $0.id == fav.bankId }) {
-                                        let theme = Color.appPrimary
-                                        let textColor = Color.white
-                                        OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor) {
-                                            OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
-                                        }
-                                        .onDrag {
-                                            self.draggedItem = fav
-                                            return NSItemProvider(object: fav.id as NSString)
-                                        }
-                                        .onDrop(of: [.plainText], delegate: FavoriteDropDelegate(item: fav, items: Binding(
-                                            get: { favoritesManager.favoriteOperations },
-                                            set: { favoritesManager.favoriteOperations = $0 }
-                                        ), draggedItem: $draggedItem))
+                                ForEach(displayedFavorites) { fav in
+                                    let theme = Color.appPrimary
+                                    let textColor = Color.white
+                                    let isCommon = commonUssdCodes.contains(fav.operation.ussdCode)
+                                    let bankBadge: String? = isCommon ? nil : banks.first(where: { $0.id == fav.bankId })?.shortName
+                                    OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor, badge: bankBadge) {
+                                        OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
                                     }
+                                    .onDrag {
+                                        self.draggedItem = fav
+                                        return NSItemProvider(object: fav.id as NSString)
+                                    }
+                                    .onDrop(of: [.plainText], delegate: FavoriteDropDelegate(item: fav, items: Binding(
+                                        get: { favoritesManager.favoriteOperations },
+                                        set: { favoritesManager.favoriteOperations = $0 }
+                                    ), draggedItem: $draggedItem))
                                 }
                             }
                             .padding(.horizontal)
@@ -1148,12 +1166,48 @@ struct UnderConstructionView: View {
 }
 
 // MARK: - Add Favorite Operation View
+/// A USSD code that dials identically on every bank, represented once via whichever
+/// bank's operation was found first — the code (and therefore the dial behavior) is
+/// the same no matter which bank's copy is used.
+private struct CommonFavoriteEntry: Identifiable {
+    var id: String { operation.ussdCode }
+    let bankId: String
+    let operation: BankOperation
+}
+
 struct AddFavoriteOperationView: View {
     @Environment(\.presentationMode) var presentationMode
     let banks: [Bank]
     @ObservedObject var favoritesManager = FavoritesManager.shared
     @State private var searchText = ""
-    
+
+    private var commonUssdCodes: Set<String> {
+        DataService.shared.commonUssdCodes(in: banks)
+    }
+
+    private var commonEntries: [CommonFavoriteEntry] {
+        var seen = Set<String>()
+        var entries: [CommonFavoriteEntry] = []
+        for bank in banks {
+            for category in bank.categories {
+                for operation in category.operations {
+                    guard commonUssdCodes.contains(operation.ussdCode), !seen.contains(operation.ussdCode) else { continue }
+                    seen.insert(operation.ussdCode)
+                    entries.append(CommonFavoriteEntry(bankId: bank.id, operation: operation))
+                }
+            }
+        }
+        return entries
+    }
+
+    private var filteredCommonEntries: [CommonFavoriteEntry] {
+        commonEntries.filter { entry in
+            searchText.isEmpty ||
+            entry.operation.name.localizedCaseInsensitiveContains(searchText) ||
+            entry.operation.description.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -1186,13 +1240,55 @@ struct AddFavoriteOperationView: View {
                 .padding(.vertical, 10)
                 
                 List {
+                    if !filteredCommonEntries.isEmpty {
+                        Section(header: Text("Común")) {
+                            ForEach(filteredCommonEntries) { entry in
+                                let isFavorite = favoritesManager.favoriteOperations.contains(where: { $0.operation.ussdCode == entry.operation.ussdCode })
+
+                                Button(action: {
+                                    if isFavorite {
+                                        favoritesManager.favoriteOperations.removeAll(where: { $0.operation.ussdCode == entry.operation.ussdCode })
+                                    } else {
+                                        favoritesManager.favoriteOperations.append(FavoriteOperation(bankId: entry.bankId, operation: entry.operation))
+                                    }
+                                }) {
+                                    HStack(spacing: 15) {
+                                        Image(systemName: entry.operation.iconName)
+                                            .foregroundColor(.appPrimary)
+                                            .frame(width: 25)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(entry.operation.name)
+                                                .foregroundColor(.primary)
+                                            Text(entry.operation.description)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+
+                                        Spacer()
+
+                                        if isFavorite {
+                                            Image(systemName: "star.fill")
+                                                .foregroundColor(.appPrimary)
+                                        } else {
+                                            Image(systemName: "plus.circle")
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     ForEach(banks) { bank in
                         ForEach(bank.categories) { category in
                             let filteredOperations = category.operations.filter { operation in
-                                searchText.isEmpty || 
+                                !commonUssdCodes.contains(operation.ussdCode) &&
+                                (searchText.isEmpty ||
                                 operation.name.localizedCaseInsensitiveContains(searchText) ||
                                 operation.description.localizedCaseInsensitiveContains(searchText) ||
-                                bank.shortName.localizedCaseInsensitiveContains(searchText)
+                                bank.shortName.localizedCaseInsensitiveContains(searchText))
                             }
                             
                             if !filteredOperations.isEmpty {

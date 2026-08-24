@@ -143,16 +143,29 @@ struct OperationCard: View {
     let operation: BankOperation
     let themeColor: Color
     let textColor: Color
+    var badge: String? = nil
     let onTap: () -> Void
-    
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(operation.name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
+                    HStack(spacing: 6) {
+                        Text(operation.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primary)
+
+                        if let badge {
+                            Text(badge)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(textColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(themeColor)
+                                .clipShape(Capsule())
+                        }
+                    }
+
                     Text(operation.description)
                         .font(.system(size: 12))
                         .foregroundColor(.gray)
