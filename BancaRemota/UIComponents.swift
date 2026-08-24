@@ -144,6 +144,8 @@ struct OperationCard: View {
     let themeColor: Color
     let textColor: Color
     var badge: String? = nil
+    var badgeColor: Color? = nil
+    var badgeTextColor: Color? = nil
     let onTap: () -> Void
 
     var body: some View {
@@ -158,10 +160,10 @@ struct OperationCard: View {
                         if let badge {
                             Text(badge)
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(textColor)
+                                .foregroundColor(badgeTextColor ?? textColor)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(themeColor)
+                                .background(badgeColor ?? themeColor)
                                 .clipShape(Capsule())
                         }
                     }

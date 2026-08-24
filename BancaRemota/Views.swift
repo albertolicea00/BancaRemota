@@ -290,8 +290,9 @@ struct BankSelectionView: View {
                                     let theme = Color.appPrimary
                                     let textColor = Color.white
                                     let isCommon = commonUssdCodes.contains(fav.operation.ussdCode)
-                                    let bankBadge: String? = isCommon ? nil : banks.first(where: { $0.id == fav.bankId })?.shortName
-                                    OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor, badge: bankBadge) {
+                                    let favBank = banks.first(where: { $0.id == fav.bankId })
+                                    let bankBadge: String? = isCommon ? nil : favBank?.shortName
+                                    OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor, badge: bankBadge, badgeColor: favBank?.themeColor, badgeTextColor: favBank?.textColor) {
                                         OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
                                     }
                                     .onDrag {
