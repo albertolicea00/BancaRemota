@@ -313,7 +313,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.3.4;
+				MARKETING_VERSION = 2.3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.albertolicea00.bancaremota;
 				PRODUCT_NAME = BancaRemota;
 				SDKROOT = iphoneos;
@@ -352,7 +352,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.3.4;
+				MARKETING_VERSION = 2.3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.albertolicea00.bancaremota;
 				PRODUCT_NAME = BancaRemota;
 				SDKROOT = iphoneos;
