@@ -10,17 +10,6 @@ Thank you for considering contributing! Any improvement is welcome — new banks
 
 ---
 
-## Branches
-
-| Branch | Purpose |
-|---|---|
-| `main` | Current stable release. Only receives merges from `beta` when ready to publish. |
-| `beta` | Active development. New features, fixes and experiments go here. |
-
-**Always work from `beta`**, never from `main`.
-
----
-
 ## How to Contribute
 
 ### Reporting a Bug
@@ -37,16 +26,16 @@ Open an Issue and include:
 If a bank changes its codes or adds new operations:
 
 1. Fork the repository.
-2. Create a branch from `beta`: `git checkout -b fix/bpa-codes`.
+2. Create a branch from `main`: `git checkout -b fix/bpa-codes`.
 3. Edit `BancaRemota/codes.json` following the existing schema.
-4. Open a Pull Request **targeting `beta`**, not `main`.
+4. Open a Pull Request **targeting `main`**.
 
 ### Code Contributions
 
 1. Fork the repository.
-2. Create a branch from `beta`:
+2. Create a branch from `main`:
    ```bash
-   git checkout beta
+   git checkout main
    git checkout -b feature/your-feature-name
    ```
 3. Make your changes.
@@ -54,7 +43,7 @@ If a bank changes its codes or adds new operations:
    ```bash
    git commit -m "feat: short description of what it does"
    ```
-5. Push and open a Pull Request **targeting `beta`**.
+5. Push and open a Pull Request **targeting `main`**.
 
 ---
 
