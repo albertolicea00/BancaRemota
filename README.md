@@ -94,7 +94,7 @@ For a deeper technical breakdown (data flow, persistence, encryption, navigation
 
 ## 🤝 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 > ⚠️ **Issues, PR descriptions, and commit messages must be written in English.**
 > The app UI is intentionally in Spanish — it targets Cuban users. All technical communication follows English conventions.
