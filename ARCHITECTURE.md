@@ -24,8 +24,8 @@ It is a single-target SwiftUI app with no backend, no network calls, and no thir
                                  │
         ┌────────────┬──────────┼───────────┬───────────────┐
         ▼            ▼          ▼           ▼               ▼
-  BankSelection  Operations  SideMenu   Config/Info/    Data list views
-      View        ListView     View      Tutorial      (Nauta/Bank/Bills/Keys)
+  BankSelection  Operations  SideMenu   Config/Tutorial  Data list views
+      View        ListView     View      (settings/help) (Nauta/Bank/Bills/Keys)
   (Home/Fav.)    (per bank)             (settings)           │
         │            │                                       │
         ▼            ▼                                       ▼
@@ -53,7 +53,7 @@ There is no MVVM view-model layer in the classic sense; screens are SwiftUI `Vie
 | `BancaRemota/Models.swift` | 379 | All `Codable` data models: static config models (`Bank`, `OperationCategory`, `BankOperation`), user-data models (`NautaAccount`, `BankAccount`, `Bill`, `UserKey`), reminder models (`Reminder`, `ReminderTemplate`, `ReminderRecurrenceKind`, `ReminderLinkType`, see §6), `FavoritesManager`, and the `Color(hex:)` / `toHex()` extension. |
 | `BancaRemota/Services.swift` | 1,024 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ContactsService` (address-book read for the mobile top-up picker), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption), `ReminderManager` (local-notification scheduling, see §6). |
 | `BancaRemota/UIComponents.swift` | 621 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `ToastBannerView`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
-| `BancaRemota/Views.swift` | 2,621 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), info/help (`HelpView`, `TutorialView`), settings (`ConfigView`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, reminders (`RemindersListView`, `AddReminderView`, `ReminderDetailView`, `ReminderRow`, see §6), plus small shared helpers (`EmptyStateView`, `DetailRow`). |
+| `BancaRemota/Views.swift` | 2,575 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), help/manual (`TutorialView`, folds in the former `HelpView` — about, credits, privacy, disclaimer), settings (`ConfigView`, now also exports `codes.json`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, reminders (`RemindersListView`, `AddReminderView`, `ReminderDetailView`, `ReminderRow`, see §6), plus small shared helpers (`EmptyStateView`, `DetailRow`). |
 | `BancaRemota/codes.json` | 209 | Static, bundled dataset: 3 banks × 4 categories each, ~37 operations per bank (112 total), each with a name, description, SF Symbol icon name, USSD dial string, and optional `isLogin` / `isDefaultFavorite` flags. |
 | `BancaRemota.xcassets/banks/` | — | Per-bank image assets (`icon`, `logo`, `card`, `background`, `banner`) for `bpa`, `bandec`, `bm`, plus unused/reserved `bc` and `red` asset groups. |
 
@@ -90,7 +90,7 @@ The `prefill` field is **app-specific metadata, not part of the upstream dataset
 
 `MainView` is a hand-rolled, single-screen state machine — there is no `NavigationStack`/`NavigationView` push hierarchy for the main flow. Navigation state is two `@AppStorage`-backed enums/strings:
 
-- `activeScreen: ActiveScreen` — `.home | .bank | .info | .tutorial | .config | .cuentasBanco | .cuentasNauta | .misClaves | .tasaCambio | .cuentasServicios | .recordatorios`
+- `activeScreen: ActiveScreen` — `.home | .bank | .tutorial | .config | .cuentasBanco | .cuentasNauta | .misClaves | .tasaCambio | .cuentasServicios | .recordatorios`
 - `selectedBankID: String` — which bank is active when `activeScreen == .bank`
 
 Because both are `@AppStorage`, **navigation state survives app relaunch** (the user reopens the app on the same screen they left, subject to the biometric lock re-triggering per §7).
@@ -292,7 +292,7 @@ When `iCloudSyncEnabled` is on, `UserDataManager.save()` additionally:
 
 The sync password itself is stored in the **Keychain** (`KeychainHelper`, service `"BancaRemota"`, account `"SyncPassword"`) — never in `UserDefaults` or iCloud. Remote changes trigger `NSUbiquitousKeyValueStore.didChangeExternallyNotification`, which calls `loadFromICloud()` to decrypt and overwrite local state on the main thread. There is **no conflict resolution** — last write observed wins per category; two devices editing offline and syncing later can silently clobber each other.
 
-Threat model as implemented: Apple/iCloud stores only ciphertext; only devices with the matching password can decrypt. `SHA256(password)` as a KDF has no salt or iteration count (not PBKDF2/Argon2/scrypt) — adequate against a passive cloud-storage observer, weak against a targeted offline brute-force if the ciphertext is ever exfiltrated. Given `NSUbiquitousKeyValueStore`'s ~1MB total quota, this is fine for its actual payload (a handful of small structs) but is a real weakness relative to the "military-grade encryption" claim in `HelpView` if that's read as a rigorous security guarantee rather than marketing language.
+Threat model as implemented: Apple/iCloud stores only ciphertext; only devices with the matching password can decrypt. `SHA256(password)` as a KDF has no salt or iteration count (not PBKDF2/Argon2/scrypt) — adequate against a passive cloud-storage observer, weak against a targeted offline brute-force if the ciphertext is ever exfiltrated. Given `NSUbiquitousKeyValueStore`'s ~1MB total quota, this is fine for its actual payload (a handful of small structs) but is a real weakness relative to the "military-grade encryption" claim in `TutorialView` (the "Privacidad y Seguridad" block, formerly in `HelpView` before it was folded in) if that's read as a rigorous security guarantee rather than marketing language.
 
 ---
 
@@ -301,7 +301,7 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 - **Color scheme**: `darkModePreference` (`@AppStorage`, 0/1/2) maps to `.preferredColorScheme(nil/.light/.dark)` — note the inverted-looking ternary in `BancaRemotaApp` (`darkModePreference == 1 ? .light : (== 2 ? .dark : nil)`) is intentional given the picker's own tag mapping (1 = "Modo Claro", 2 = "Modo Oscuro"), just worth double-checking if this file is ever refactored, since the naming reads backwards at a glance.
 - **Accent color**: `Color.appPrimary` (`Models.swift`) is a computed static property, not a fixed asset-catalog color — it reads `useCustomFavoriteColor` and `favoriteCustomColorHex` from `UserDefaults` on every access and defaults to gold (`#B38B4D`). `ConfigView` exposes a `ColorPicker` that writes back through `Color.toHex()`. `MainView`'s root view uses `.id("\(useCustomFavoriteColor)_\(favoriteCustomColorHex)")` to force a full view-identity reset (and thus a redraw with the new color) whenever the accent changes — a pragmatic workaround for `Color.appPrimary` not being a `@Published`/reactive value.
 - **Per-bank theming**: each `Bank` carries its own `themeColorHex`/`textColorHex`, applied to that bank's `TopNavBar` and `OperationCard` icon circles — so the chrome recolors per bank while `.appPrimary` (gold) remains constant for all bank-agnostic screens (Home, Settings, Info, Nauta/Bills/Keys lists).
-- **Known inconsistency**: `HelpView` uses plain system `.blue` for its three external/action links (LinkedIn, GitHub, "Export codes database") instead of `.appPrimary`, breaking from the gold accent used everywhere else in the app. Low-severity cosmetic drift, not a functional issue.
+- **Known inconsistency**: `TutorialView`'s "Contacto y Colaboración"/"Créditos" links (LinkedIn, GitHub) use plain system `.blue`/`.gray` instead of `.appPrimary`, breaking from the gold accent used everywhere else in the app — inherited as-is from the former `HelpView`. Low-severity cosmetic drift, not a functional issue.
 
 ---
 
@@ -321,7 +321,7 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 ## 12. Notable Constraints & Trade-offs (for future contributors)
 
 - **`OperationRunner` is the only sanctioned USSD entry point**: calling `CallService.executeUSSD` directly from a new screen silently skips the prefill step (§5.1), so the operation dials without the data it needs. Route new call sites through the runner.
-- **"Cifrado militar" in `HelpView` is marketing copy, not a technical claim**: treat it as such when reasoning about the app's guarantees. What is actually implemented is AES-GCM over an unsalted, single-iteration `SHA256(password)` key (§8), covering iCloud sync only — not exported backups, which are plaintext JSON. Do not cite that phrase as evidence of a security property, and do not weaken the implementation on the assumption that the phrase already overstates it.
+- **"Cifrado militar" in `TutorialView` is marketing copy, not a technical claim**: treat it as such when reasoning about the app's guarantees. What is actually implemented is AES-GCM over an unsalted, single-iteration `SHA256(password)` key (§8), covering iCloud sync only — not exported backups, which are plaintext JSON. Do not cite that phrase as evidence of a security property, and do not weaken the implementation on the assumption that the phrase already overstates it.
 - **No dependency injection / testability seams**: every service is a `static let shared` singleton accessed directly from views. Unit-testing a view in isolation currently means dealing with real `UserDefaults`/`Keychain`/`CryptoKit` state, not mocks.
 - **Silent failure on decode errors**: nearly every `JSONDecoder`/`JSONEncoder` call site uses `try?`, so a corrupted `UserDefaults` blob or a malformed imported backup fails silently (empty result) rather than surfacing an error to the user, except where `importBackup` explicitly returns `false`.
 - **No data migrations**: adding/renaming/retyping a field on any `Codable` model (`BankAccount`, `UserKey`, etc.) will silently drop previously stored data for existing users unless a custom decoder is written before shipping the change.
