@@ -7,7 +7,7 @@ struct IdentifiableURL: Identifiable {
 }
 
 enum ActiveScreen: String {
-    case home, bank, info, tutorial, config, cuentasBanco, cuentasNauta, misClaves, tasaCambio, cuentasServicios, recordatorios
+    case home, bank, tutorial, config, cuentasBanco, cuentasNauta, misClaves, tasaCambio, cuentasServicios, recordatorios
 }
 
 // MARK: - Navigation Hub View
@@ -29,8 +29,6 @@ struct MainView: View {
             VStack(spacing: 0) {
                 if let config = config {
                     switch activeScreen {
-                    case .info:
-                        HelpView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
                     case .tutorial:
                         TutorialView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
                     case .config:
@@ -100,10 +98,6 @@ struct MainView: View {
                     onSelectBank: { bank in
                         selectedBankID = bank.id
                         activeScreen = .bank
-                        withAnimation { isMenuOpen = false }
-                    },
-                    onSelectHelp: {
-                        activeScreen = .info
                         withAnimation { isMenuOpen = false }
                     },
                     onSelectTutorial: {
@@ -410,7 +404,6 @@ struct SideMenuView: View {
     let activeScreen: ActiveScreen
     let onSelectHome: () -> Void
     let onSelectBank: (Bank) -> Void
-    let onSelectHelp: () -> Void
     let onSelectTutorial: () -> Void
     let onSelectConfig: () -> Void
     let onSelectScreen: (ActiveScreen) -> Void
@@ -454,10 +447,7 @@ struct SideMenuView: View {
                     Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
 
-                    Divider().padding(.trailing, 40)                    
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "info.circle", title: "Información", isSelected: activeScreen == .info) {
-                        onSelectHelp()
-                    }
+                    Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda (Manual)", isSelected: activeScreen == .tutorial) {
                         onSelectTutorial()
                     }
@@ -481,143 +471,6 @@ struct SideMenuView: View {
                     }
                 }
         )
-    }
-}
-
-// MARK: - Help and About View
-struct HelpView: View {
-    let onMenuTap: () -> Void
-    @State private var showingShareSheet = false
-    @State private var shareURL: URL? = nil
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, title: "Información")
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 25) {
-                    Group {
-                        HelpSection(title: "Sobre la Aplicación", content: "Banca Remota es una utilidad nativa para iPhone que permite ejecutar operaciones bancarias en Cuba mediante códigos USSD sin necesidad de internet. Incluye un gestor local para tarjetas, cuentas nauta, cuentas de servicios y contraseñas.")
-
-                        HelpSection(title: "¿Qué es USSD?", content: "USSD (Servicio Suplementario de Datos No Estructurados) es un protocolo de telefonía que permite interactuar con el banco marcando códigos especiales como *5#. No requiere datos móviles ni Wi-Fi, funciona con cualquier señal de voz.\n\nAl tocar una operación en la app, se abre automáticamente el marcador del sistema con el código correspondiente listo para marcar.")
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Contacto y Colaboración")
-                                .font(.headline)
-                                .foregroundColor(.appPrimary)
-
-                            Link(destination: URL(string: "https://www.linkedin.com/in/albertolicea00")!) {
-                                Label("Alberto Licea (Desarrollador)", systemImage: "person.circle")
-                            }
-                            .foregroundColor(.blue)
-
-                            Link(destination: URL(string: "https://github.com/albertolicea00/BancaRemota")!) {
-                                Label("Código Fuente en GitHub", systemImage: "terminal")
-                            }
-                            .foregroundColor(.blue)
-                            .padding(.top, 2)
-
-                            Text("Puedes colaborar sugiriendo mejoras, reportando errores o aportando actualizaciones de los códigos USSD.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                                .padding(.top, 2)
-
-                            Divider().padding(.top, 5)
-                        }
-
-                        HelpSection(title: "Nuestro Compromiso", content: "Esta aplicación se mantendrá ligera, sencilla y rápida. El objetivo es que funcione en todos los dispositivos Apple, incluso en los más antiguos, sin requerir actualizaciones de hardware para acceder a tu banco.")
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Créditos")
-                                .font(.headline)
-                                .foregroundColor(.appPrimary)
-
-                            Link(destination: URL(string: "https://www.linkedin.com/in/henrycruzmederos")!) {
-                                Label("Henry Cruz (Creador de la app original)", systemImage: "link")
-                            }
-                            .font(.body)
-                            .foregroundColor(.gray)
-
-                            Divider().padding(.top, 5)
-                        }
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Datos de la Aplicación")
-                                .font(.headline)
-                                .foregroundColor(.appPrimary)
-
-                            Text("La aplicación utiliza una base de datos local para los códigos USSD. Puedes descargar este archivo para revisarlo o compartirlo.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-
-                            Button(action: {
-                                if let url = Bundle.main.url(forResource: "codes", withExtension: "json") {
-                                    shareURL = url
-                                    showingShareSheet = true
-                                }
-                            }) {
-                                Label("Exportar BBDD de códigos USSD", systemImage: "square.and.arrow.up")
-                                    .font(.body)
-                                    .foregroundColor(.blue)
-                            }
-                            .padding(.top, 2)
-
-                            Divider().padding(.top, 10)
-                        }
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Privacidad y Seguridad")
-                                .font(.headline)
-                                .foregroundColor(.appPrimary)
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label("Cifrado militar (AES-GCM) para la nube", systemImage: "lock.shield")
-                                Label("Sin servidores ni cuentas externas", systemImage: "server.rack")
-                                Label("Tú controlas tus archivos de respaldo", systemImage: "archivebox")
-                                Label("Sin publicidad ni rastreo", systemImage: "eye.slash")
-                                Label("Acceso protegido por Face ID / Touch ID", systemImage: "faceid")
-                                Label("Lo copiado caduca a los 2 minutos y no sale del dispositivo", systemImage: "doc.on.clipboard")
-                                Label("Tus contactos se leen solo al recargar un móvil", systemImage: "person.crop.circle")
-                                Label("Recordatorios: notificaciones locales, sin servidor ni sincronización", systemImage: "bell.badge")
-                            }
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                            Text("Al recargar un móvil, la app pide permiso para leer tus contactos y así mostrártelos dentro de la propia app en vez de abrir la agenda del sistema. Se leen en ese momento y nada más: no se guardan, no se copian a ningún archivo y no se envían a ningún sitio. Puedes desactivarlo en Configuración o denegar el permiso desde Ajustes de iOS.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                                .padding(.top, 4)
-
-                            Text("Cuando la app copia una clave, una tarjeta o un número al portapapeles, lo hace de forma que no se sincronice con tus otros dispositivos y iOS lo borra solo a los 2 minutos.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                                .padding(.top, 4)
-
-                            Text("Tus datos están protegidos localmente por iOS. Si habilitas la sincronización con iCloud, la app cifra tu información con tu contraseña personal de forma que solo tú (y nadie más, ni siquiera Apple) pueda ver tus datos.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                                .padding(.top, 4)
-
-                            Divider().padding(.top, 5)
-                        }
-                    }
-
-                    Spacer(minLength: 20)
-
-                    Text("Versión \(AppVersion) (\(AppBuild))")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity)
-                }
-                .padding(25)
-            }
-            .background(Color(UIColor.systemGroupedBackground))
-            .sheet(isPresented: $showingShareSheet) {
-                if let url = shareURL {
-                    ActivityView(activityItems: [url])
-                }
-            }
-        }
     }
 }
 
@@ -697,6 +550,10 @@ struct TutorialView: View {
                         .foregroundColor(.appPrimary)
                         .padding(.bottom, 10)
 
+                    HelpSection(title: "Sobre la Aplicación", content: "Banca Remota es una utilidad nativa para iPhone que permite ejecutar operaciones bancarias en Cuba mediante códigos USSD sin necesidad de internet. Incluye un gestor local para tarjetas, cuentas nauta, cuentas de servicios y contraseñas.")
+
+                    HelpSection(title: "¿Qué es USSD?", content: "USSD (Servicio Suplementario de Datos No Estructurados) es un protocolo de telefonía que permite interactuar con el banco marcando códigos especiales como *5#. No requiere datos móviles ni Wi-Fi, funciona con cualquier señal de voz.\n\nAl tocar una operación en la app, se abre automáticamente el marcador del sistema con el código correspondiente listo para marcar.")
+
                     HelpSection(title: "Operaciones bancarias", content: "Selecciona tu banco desde la pantalla de inicio o el menú lateral. Verás las operaciones organizadas por categorías: Sesión, Consultas, Transferencias, etc. Al tocar cualquiera, se abre el marcador del teléfono con el código USSD listo. Solo confirma la llamada.")
 
                     HelpSection(title: "Primera vez: Sesión", content: "Antes de consultar saldo o hacer transferencias, debes autenticarte en el banco. Busca la categoría 'Sesión' o 'Inicio de sesión' dentro de tu banco y ejecuta esa operación primero. Cada banco puede requerir tu número de tarjeta o móvil durante el proceso USSD.")
@@ -722,6 +579,86 @@ struct TutorialView: View {
                     HelpSection(title: "Respaldo de Datos", content: "En Configuración puedes generar archivos de respaldo (.json) para exportar tus cuentas y claves. Puedes guardar estos archivos en tu dispositivo o compartirlos. Para restaurar tu información, utiliza el botón 'Importar' y selecciona tu archivo de respaldo.")
 
                     HelpSection(title: "Sincronización y Cifrado", content: "Activa 'Sincronización con iCloud' en Configuración para mantener tus datos sincronizados entre todos tus dispositivos Apple. Deberás configurar una contraseña de cifrado: tus datos se cifran localmente antes de subirse a la nube, garantizando que solo tú puedas acceder a ellos.")
+
+                    HelpSection(title: "Nuestro Compromiso", content: "Esta aplicación se mantendrá ligera, sencilla y rápida. El objetivo es que funcione en todos los dispositivos Apple, incluso en los más antiguos, sin requerir actualizaciones de hardware para acceder a tu banco.")
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Contacto y Colaboración")
+                            .font(.headline)
+                            .foregroundColor(.appPrimary)
+
+                        Link(destination: URL(string: "https://www.linkedin.com/in/albertolicea00")!) {
+                            Label("Alberto Licea (Desarrollador)", systemImage: "person.circle")
+                        }
+                        .foregroundColor(.blue)
+
+                        Link(destination: URL(string: "https://github.com/albertolicea00/BancaRemota")!) {
+                            Label("Código Fuente en GitHub", systemImage: "terminal")
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.top, 2)
+
+                        Text("Puedes colaborar sugiriendo mejoras, reportando errores o aportando actualizaciones de los códigos USSD.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(.top, 2)
+
+                        Divider().padding(.top, 5)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Créditos")
+                            .font(.headline)
+                            .foregroundColor(.appPrimary)
+
+                        Link(destination: URL(string: "https://www.linkedin.com/in/henrycruzmederos")!) {
+                            Label("Henry Cruz (Creador de la app original)", systemImage: "link")
+                        }
+                        .font(.body)
+                        .foregroundColor(.gray)
+
+                        Divider().padding(.top, 5)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Privacidad y Seguridad")
+                            .font(.headline)
+                            .foregroundColor(.appPrimary)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Cifrado militar (AES-GCM) para la nube", systemImage: "lock.shield")
+                            Label("Sin servidores ni cuentas externas", systemImage: "server.rack")
+                            Label("Tú controlas tus archivos de respaldo", systemImage: "archivebox")
+                            Label("Sin publicidad ni rastreo", systemImage: "eye.slash")
+                            Label("Acceso protegido por Face ID / Touch ID", systemImage: "faceid")
+                            Label("Lo copiado caduca a los 2 minutos y no sale del dispositivo", systemImage: "doc.on.clipboard")
+                            Label("Tus contactos se leen solo al recargar un móvil", systemImage: "person.crop.circle")
+                            Label("Recordatorios: notificaciones locales, sin servidor ni sincronización", systemImage: "bell.badge")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                        Text("Al recargar un móvil, la app pide permiso para leer tus contactos y así mostrártelos dentro de la propia app en vez de abrir la agenda del sistema. Se leen en ese momento y nada más: no se guardan, no se copian a ningún archivo y no se envían a ningún sitio. Puedes desactivarlo en Configuración o denegar el permiso desde Ajustes de iOS.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(.top, 4)
+
+                        Text("Cuando la app copia una clave, una tarjeta o un número al portapapeles, lo hace de forma que no se sincronice con tus otros dispositivos y iOS lo borra solo a los 2 minutos.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(.top, 4)
+
+                        Text("Tus datos están protegidos localmente por iOS. Si habilitas la sincronización con iCloud, la app cifra tu información con tu contraseña personal de forma que solo tú (y nadie más, ni siquiera Apple) pueda ver tus datos.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(.top, 4)
+
+                        Divider().padding(.top, 5)
+                    }
+
+                    Label("No está afiliada, avalada ni patrocinada por BPA, BANDEC ni BM. Los códigos pueden cambiar en cualquier momento a discreción de cada banco.", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
                     Spacer()
 
@@ -774,6 +711,8 @@ struct ConfigView: View {
     @State private var showingFilePicker = false
     @State private var showingImportAlert = false
     @State private var backupURL: IdentifiableURL? = nil
+    @State private var showingCodesShareSheet = false
+    @State private var codesShareURL: URL? = nil
     
     @State private var includeNauta = true
     @State private var includeBanks = true
@@ -950,6 +889,17 @@ struct ConfigView: View {
                     .disabled(isResetting)
                 }
 
+                Section(header: Text("Datos de la Aplicación"), footer: Text("La aplicación utiliza una base de datos local para los códigos USSD. Puedes descargar este archivo para revisarlo o compartirlo.")) {
+                    Button(action: {
+                        if let url = Bundle.main.url(forResource: "codes", withExtension: "json") {
+                            codesShareURL = url
+                            showingCodesShareSheet = true
+                        }
+                    }) {
+                        Label("Exportar BBDD de Códigos USSD", systemImage: "square.and.arrow.up")
+                    }
+                }
+
                 Section(footer: Text("Versión \(AppVersion) (\(AppBuild))")
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
@@ -1005,6 +955,11 @@ struct ConfigView: View {
             }
             .sheet(item: $backupURL) { item in
                 ActivityView(activityItems: [item.url])
+            }
+            .sheet(isPresented: $showingCodesShareSheet) {
+                if let url = codesShareURL {
+                    ActivityView(activityItems: [url])
+                }
             }
             .sheet(isPresented: $showingFilePicker) {
                 DocumentPicker { url in
