@@ -25,37 +25,13 @@
 
 ## ✨ Features
 
-### 📞 Banking Operations
-Access any USSD operation organized by category — login, balance, transfers, limits, and more. Tap an operation and the dialer opens with the code ready to call.
-
-### ⭐ Favorites
-Pin frequent operations to the home screen. Drag to reorder. Custom color from Settings.
-
-### 💳 Bank Accounts
-Store card data: number (masked by default), cardholder name, associated mobile, and custom color. Copy to clipboard in one tap.
-
-### 🌐 Nauta Accounts
-Store Nacional and Internacional Nauta usernames, organized by groups.
-
-### 🧾 Service Bills
-Store contract numbers for electricity, water, gas, and telephone — copy quickly when making USSD payments.
-
-### 🔑 Keys *(Biometric required)*
-Local PIN and password manager by category. Only accessible when Face ID / Touch ID is enabled.
-
-### 🔔 Reminders
-Local notifications (no server, no push) for payments/top-ups you need to make. Quick templates for Luz, Agua, Gas, Teléfono, Nauta, and Transferencia — each can be created any number of times (e.g. one per house or per Nauta account) and linked to a saved bill/account so the notification shows the real data and an "Ejecutar" button copies it and dials. Fully custom reminders also supported. Recurrence: once, daily, weekly, monthly, or every N days. All start off — nothing fires until you create one.
-
-### 🎙️ Siri & Shortcuts *(iOS 16+)*
-Built on Apple's `AppIntents` framework — no extra setup, no Siri capability/entitlement, works the moment you install the app. "Hey Siri, consulta mi saldo en Banca Remota" (or Pagar Luz/Agua/Gas/Teléfono, Recargar Nauta, Transferencia, Autenticarse, for whichever bank you name) opens the app and runs the exact same `OperationRunner` path a tap would — same copy-to-clipboard prefill, same bill/account picker if one applies, same system dial confirmation. See Ayuda (Manual) › Siri y Atajos de Voz in-app for the full phrase list and a shortcut to iOS's own Siri & Search settings for the app.
-
-### ⚙️ Settings
-
-- 🌓 Light / Dark / System theme
-- 🔐 Face ID / Touch ID with configurable session expiration
-- 🏠 Toggle menu shortcuts on home screen
-- 🎨 Custom color for favorite cards
-- 🔄 Reset favorites to defaults
+- 📞 **Banking Operations** — USSD operations organized by category (login, balance, transfers, limits) for BPA, BANDEC, and BM. Tap to open system dialer.
+- ⭐ **Favorites** — Pin frequent operations to home screen with drag-to-reorder and custom card colors.
+- 💳 **Bank Accounts & Service Bills** — Store card numbers, contract numbers (electricity, water, gas, telephone), and Nauta accounts for fast copy-pasting.
+- 🔑 **Secure Keys Vault** — Local PIN and password manager protected behind Face ID / Touch ID biometric authentication.
+- 🔔 **Local Reminders** — Schedule configurable notifications for bill payments, card top-ups, and transfers with 1-tap dial action.
+- 🎙️ **Siri & Voice Shortcuts** — Execute operations using native voice commands via Apple's `AppIntents` framework.
+- 🌗 **Customization & Settings** — Light/Dark mode, accent color picker, biometric session timeout, and home screen shortcut toggles.
 
 ---
 
