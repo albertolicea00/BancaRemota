@@ -21,6 +21,12 @@
 | 🟢 **BANDEC** | Banco de Crédito y Comercio |
 | 🔴 **BM** | Banco Metropolitano |
 
+## ⚠️ Disclaimer
+
+> [!WARNING]
+> This is an independent, community-made app. It is **not affiliated with, endorsed by, or sponsored by BPA (Banco Popular de Ahorro), BANDEC (Banco de Crédito y Comercio), or BM (Banco Metropolitano)**.  
+> USSD codes and services may change at any time at the financial institutions' discretion.
+
 ---
 
 ## ✨ Features
