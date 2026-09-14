@@ -461,7 +461,7 @@ struct SideMenuView: View {
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "info.circle", title: "Información", isSelected: activeScreen == .info) {
                         onSelectHelp()
                     }
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda", isSelected: activeScreen == .tutorial) {
+                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda (Manual)", isSelected: activeScreen == .tutorial) {
                         onSelectTutorial()
                     }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
