@@ -580,6 +580,8 @@ struct TutorialView: View {
 
                     HelpSection(title: "Sincronización y Cifrado", content: "Activa 'Sincronización con iCloud' en Configuración para mantener tus datos sincronizados entre todos tus dispositivos Apple. Deberás configurar una contraseña de cifrado: tus datos se cifran localmente antes de subirse a la nube, garantizando que solo tú puedas acceder a ellos.")
 
+                    HelpSection(title: "Siri y Atajos de Voz", content: "En Configuración › Siri y Atajos de Voz puedes ver las frases de voz disponibles. No hay que configurar nada: apenas instalas la app, Siri y la app Atajos ya la reconocen.\n\nCada frase abre Banca Remota y ejecuta la operación exactamente igual que si la tocaras en pantalla — respeta el copiado automático, muestra el mismo listado de facturas/cuentas si hace falta elegir una, y el sistema pide confirmar la llamada igual que siempre.\n\nEjemplos: «Oye Siri, consulta mi saldo en Banca Remota», «Oye Siri, ejecuta Pagar Luz en Banca Remota», «Oye Siri, marca Recargar Nauta en Banca Remota». Si no dices el banco, usa BPA por defecto — puedes decir el banco explícitamente, ej. «...en BANDEC con Banca Remota». Requiere iOS 16 o superior.")
+
                     HelpSection(title: "Nuestro Compromiso", content: "Esta aplicación se mantendrá ligera, sencilla y rápida. El objetivo es que funcione en todos los dispositivos Apple, incluso en los más antiguos, sin requerir actualizaciones de hardware para acceder a tu banco.")
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -887,6 +889,24 @@ struct ConfigView: View {
                         .foregroundColor(.appPrimary)
                     }
                     .disabled(isResetting)
+                }
+
+                Section(header: Text("Siri y Atajos de Voz"), footer: Text("Compatible con \"Oye Siri\" y con la app Atajos — no requiere configuración adicional, funciona apenas instalas la app. Cada frase abre Banca Remota y ejecuta la operación exactamente igual que si la tocaras, respetando lo que copies o no en cada sección de arriba.")) {
+                    Label("Ejecuta operaciones bancarias con tu voz, sin tener que abrir la app primero.", systemImage: "mic.fill")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("FRASES DE EJEMPLO")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Label("«Oye Siri, consulta mi saldo en Banca Remota»", systemImage: "waveform")
+                        Label("«Oye Siri, ejecuta Pagar Luz en Banca Remota»", systemImage: "waveform")
+                        Label("«Oye Siri, marca Recargar Nauta en Banca Remota»", systemImage: "waveform")
+                        Label("«Oye Siri, ejecuta Transferencia en BANDEC con Banca Remota»", systemImage: "waveform")
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
                 }
 
                 Section(header: Text("Datos de la Aplicación"), footer: Text("La aplicación utiliza una base de datos local para los códigos USSD. Puedes descargar este archivo para revisarlo o compartirlo.")) {

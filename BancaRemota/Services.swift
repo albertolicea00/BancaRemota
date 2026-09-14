@@ -5,6 +5,7 @@ import CoreTelephony
 import UniformTypeIdentifiers
 import Contacts
 import UserNotifications
+import AppIntents
 
 let AppVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 let AppBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -1020,5 +1021,126 @@ class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDeleg
                 self.deepLinkReminder = reminder
             }
         }
+    }
+}
+
+// MARK: - Siri / App Intents
+/// Lets Siri, Spotlight, and the Shortcuts app run a bank operation directly — "Hey Siri, marca
+/// Consultar Saldo en Banca Remota". Built on `AppIntents` (not the legacy SiriKit
+/// `Intents.framework`), so it needs no separate extension target or Siri entitlement: the system
+/// discovers `BancaRemotaShortcuts` by reflection at install time.
+///
+/// Every intent here re-enters the exact same pipeline a tap would (`OperationRunner.run`), so it
+/// respects the user's copy-mode settings (§5.3/§5.4 in ARCHITECTURE.md) and can still present the
+/// in-app bill/Nauta/card picker — `openAppWhenRun` brings the app to the foreground first so that
+/// picker (and the system's own dial confirmation) has somewhere to appear. Nothing dials silently
+/// in the background.
+@available(iOS 16.0, *)
+enum BankOption: String, AppEnum {
+    case bpa, bandec, bm
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Banco"
+
+    static var caseDisplayRepresentations: [BankOption: DisplayRepresentation] = [
+        .bpa: "BPA",
+        .bandec: "BANDEC",
+        .bm: "BM",
+    ]
+}
+
+/// A curated set of operations whose `codes.json` id is identical across `bpa`/`bandec`/`bm`
+/// (verified against the catalog), so one `operationId` per case covers all three banks — Siri
+/// only needs to ask which bank, never which operation id.
+@available(iOS 16.0, *)
+enum QuickBankOperation: String, AppEnum {
+    case consultarSaldo, pagarLuz, pagarAgua, pagarGas, pagarTelefono, recargarNauta, transferencia, autenticarse
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Operación"
+
+    static var caseDisplayRepresentations: [QuickBankOperation: DisplayRepresentation] = [
+        .consultarSaldo: "Consultar Saldo",
+        .pagarLuz: "Pagar Luz",
+        .pagarAgua: "Pagar Agua",
+        .pagarGas: "Pagar Gas",
+        .pagarTelefono: "Pagar Teléfono",
+        .recargarNauta: "Recargar Nauta",
+        .transferencia: "Transferencia",
+        .autenticarse: "Autenticarse",
+    ]
+
+    var operationId: String {
+        switch self {
+        case .consultarSaldo: return "op_2"
+        case .pagarLuz: return "op_6"
+        case .pagarAgua: return "op_9"
+        case .pagarGas: return "op_23"
+        case .pagarTelefono: return "op_7"
+        case .recargarNauta: return "op_21"
+        case .transferencia: return "op_4"
+        case .autenticarse: return "op_0"
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+struct EjecutarOperacionIntent: AppIntent {
+    static var title: LocalizedStringResource = "Ejecutar Operación Bancaria"
+    static var description = IntentDescription("Marca una operación de Banca Remota (saldo, pagos, transferencia, autenticación) en el banco que elijas.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Operación")
+    var operacion: QuickBankOperation
+
+    @Parameter(title: "Banco", default: .bpa)
+    var banco: BankOption
+
+    init() {}
+
+    /// Lets `BancaRemotaShortcuts` pre-fill this intent for a fixed-phrase shortcut (e.g.
+    /// "Consulta mi saldo en Banca Remota" always means `.consultarSaldo`) — the App Intents
+    /// build-time tooling that extracts Siri suggestions only recognizes a direct initializer
+    /// call like this, not a property assigned after `Self()`.
+    init(operacion: QuickBankOperation, banco: BankOption = .bpa) {
+        self.operacion = operacion
+        self.banco = banco
+    }
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("\(\.$operacion) en \(\.$banco)")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let operation = DataService.shared.operation(id: operacion.operationId, bankId: banco.rawValue) else {
+            return .result(dialog: "No se encontró esa operación para ese banco.")
+        }
+        OperationRunner.shared.run(operation, bankId: banco.rawValue)
+        return .result(dialog: "Ejecutando \(operation.name)...")
+    }
+}
+
+@available(iOS 16.0, *)
+struct BancaRemotaShortcuts: AppShortcutsProvider {
+    @AppShortcutsBuilder
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: EjecutarOperacionIntent(),
+            phrases: [
+                "Ejecuta \(\.$operacion) en \(.applicationName)",
+                "Marca \(\.$operacion) en \(.applicationName)",
+            ],
+            shortTitle: "Ejecutar Operación",
+            systemImageName: "building.columns"
+        )
+
+        AppShortcut(
+            intent: EjecutarOperacionIntent(operacion: .consultarSaldo),
+            phrases: [
+                "Consulta mi saldo en \(.applicationName)",
+                "Cuánto saldo tengo en \(.applicationName)",
+            ],
+            shortTitle: "Consultar Saldo",
+            systemImageName: "banknote"
+        )
     }
 }
