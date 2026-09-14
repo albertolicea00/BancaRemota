@@ -47,7 +47,7 @@ Local PIN and password manager by category. Only accessible when Face ID / Touch
 Local notifications (no server, no push) for payments/top-ups you need to make. Quick templates for Luz, Agua, Gas, Teléfono, Nauta, and Transferencia — each can be created any number of times (e.g. one per house or per Nauta account) and linked to a saved bill/account so the notification shows the real data and an "Ejecutar" button copies it and dials. Fully custom reminders also supported. Recurrence: once, daily, weekly, monthly, or every N days. All start off — nothing fires until you create one.
 
 ### 🎙️ Siri & Shortcuts *(iOS 16+)*
-Built on Apple's `AppIntents` framework — no extra setup, no Siri capability/entitlement, works the moment you install the app. "Hey Siri, consulta mi saldo en Banca Remota" (or Pagar Luz/Agua/Gas/Teléfono, Recargar Nauta, Transferencia, Autenticarse, for whichever bank you name) opens the app and runs the exact same `OperationRunner` path a tap would — same copy-to-clipboard prefill, same bill/account picker if one applies, same system dial confirmation. See Configuración › Siri y Atajos de Voz in-app for the full phrase list.
+Built on Apple's `AppIntents` framework — no extra setup, no Siri capability/entitlement, works the moment you install the app. "Hey Siri, consulta mi saldo en Banca Remota" (or Pagar Luz/Agua/Gas/Teléfono, Recargar Nauta, Transferencia, Autenticarse, for whichever bank you name) opens the app and runs the exact same `OperationRunner` path a tap would — same copy-to-clipboard prefill, same bill/account picker if one applies, same system dial confirmation. See Ayuda (Manual) › Siri y Atajos de Voz in-app for the full phrase list and a shortcut to iOS's own Siri & Search settings for the app.
 
 ### ⚙️ Settings
 
