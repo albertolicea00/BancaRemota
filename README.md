@@ -36,7 +36,6 @@
 - 💳 **Bank Accounts & Service Bills** — Store card numbers, contract numbers (electricity, water, gas, telephone), and Nauta accounts for fast copy-pasting.
 - 🔑 **Secure Keys Vault** — Local PIN and password manager protected behind Face ID / Touch ID biometric authentication.
 - 🔔 **Local Reminders** — Schedule configurable notifications for bill payments, card top-ups, and transfers with 1-tap dial action.
-- 🎙️ **Siri & Voice Shortcuts** — Execute operations using native voice commands via Apple's `AppIntents` framework.
 - 🌗 **Customization & Settings** — Light/Dark mode, accent color picker, biometric session timeout, and home screen shortcut toggles.
 
 ### Upcoming
@@ -76,7 +75,7 @@ open BancaRemota.xcodeproj
 |------|-------------|
 | `codes.json` | Banks, categories, and USSD codes. Edit to add operations without touching code. |
 | `Models.swift` | `Codable` models for `codes.json` and user data (`BankAccount`, `NautaAccount`, `Bill`, `UserKey`, `Reminder`, `ReminderTemplate`). |
-| `Services.swift` | Config loading, USSD dialer, favorites management, data persistence, reminder scheduling (`ReminderManager`, local notifications), and Siri/Shortcuts integration (`EjecutarOperacionIntent`, `BancaRemotaShortcuts`). |
+| `Services.swift` | Config loading, USSD dialer, favorites management, data persistence, and reminder scheduling (`ReminderManager`, local notifications). |
 | `Views.swift` | All screens: navigation, lists, edit forms, and info views. |
 | `UIComponents.swift` | Reusable components: `TopNavBar`, `OperationCard`, `WalletCard`, `DataCard`, `MenuShortcutCard`, etc. |
 | `BancaRemotaApp.swift` | App entry point, authentication management, and theme preferences. |
@@ -86,6 +85,8 @@ For a deeper technical breakdown (data flow, persistence, encryption, navigation
 ---
 
 ## 🚧 Known Limitations
+
+- **No Siri / Voice Shortcuts integration.** Previously implemented via `AppIntents`, then removed on purpose. Every intent still had to foreground the app and go through the exact same `tel://` dial-confirmation prompt as tapping an operation in the UI — so a voice command saved no real steps over unlocking the phone and tapping through, while adding a whole extra surface (intents, `AppShortcutsProvider`, a Siri-settings help block) to maintain.
 
 - **iOS security sandbox and USSD limitations (vs. Android / Transfermóvil).** Unlike Android apps (such as Transfermóvil), iOS sandbox security strictness prevents third-party apps from intercepting, reading, or parsing USSD response popups, chaining multi-step USSD sessions automatically, or executing USSD codes silently in the background. Opening a USSD link (`tel://`) hands execution over to the system Phone app, requiring manual user interaction for any follow-up menus or responses.
 

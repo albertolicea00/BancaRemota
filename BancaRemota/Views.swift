@@ -621,45 +621,6 @@ struct TutorialView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Siri y Atajos de Voz")
-                            .font(.headline)
-                            .foregroundColor(.appPrimary)
-
-                        Text("No hay que configurar nada: apenas instalas la app, Siri y la app Atajos ya la reconocen. Cada frase abre Banca Remota y ejecuta la operación exactamente igual que si la tocaras en pantalla — respeta el copiado automático, muestra el mismo listado de facturas/cuentas si hace falta elegir una, y el sistema pide confirmar la llamada igual que siempre.")
-                            .font(.body)
-                            .foregroundColor(.primary.opacity(0.8))
-                            .lineSpacing(4)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("«Oye Siri, consulta mi saldo en Banca Remota»")
-                            Text("«Oye Siri, ejecuta Pagar Luz en Banca Remota»")
-                            Text("«Oye Siri, marca Recargar Nauta en Banca Remota»")
-                            Text("«Oye Siri, ejecuta Transferencia en BANDEC con Banca Remota»")
-                        }
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 2)
-
-                        Text("Si no dices el banco, usa BPA por defecto. Requiere iOS 16 o superior.")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding(.top, 2)
-
-                        Button(action: {
-                            if let url = URL(string: UIApplication.openSettingsURLString) {
-                                UIApplication.shared.open(url)
-                            }
-                        }) {
-                            Label("Abrir Ajustes de Siri para Banca Remota", systemImage: "gear")
-                                .font(.body)
-                                .foregroundColor(.blue)
-                        }
-                        .padding(.top, 4)
-
-                        Divider().padding(.top, 5)
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
                         Text("Privacidad y Seguridad")
                             .font(.headline)
                             .foregroundColor(.appPrimary)

@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-09-14 · **Doc version:** 1.8 · **Last commit documented:** `a05d349`
+**Last updated:** 2026-09-14 · **Doc version:** 1.9 · **Last commit documented:** `a05d349`
 
 ---
 
@@ -51,7 +51,7 @@ There is no MVVM view-model layer in the classic sense; screens are SwiftUI `Vie
 |---|---|---|
 | `BancaRemota/BancaRemotaApp.swift` | 53 | `@main` entry point. Hosts `MainView`, overlays the biometric lock screen, applies the dark/light/system theme, and forwards `ScenePhase` changes to `AuthManager`. |
 | `BancaRemota/Models.swift` | 379 | All `Codable` data models: static config models (`Bank`, `OperationCategory`, `BankOperation`), user-data models (`NautaAccount`, `BankAccount`, `Bill`, `UserKey`), reminder models (`Reminder`, `ReminderTemplate`, `ReminderRecurrenceKind`, `ReminderLinkType`, see §6), `FavoritesManager`, and the `Color(hex:)` / `toHex()` extension. |
-| `BancaRemota/Services.swift` | 1,146 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ContactsService` (address-book read for the mobile top-up picker), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption), `ReminderManager` (local-notification scheduling, see §6), Siri/App Intents (`EjecutarOperacionIntent`, `BancaRemotaShortcuts`, see §7). |
+| `BancaRemota/Services.swift` | 1,146 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ContactsService` (address-book read for the mobile top-up picker), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption), and `ReminderManager` (local-notification scheduling, see §6). |
 | `BancaRemota/UIComponents.swift` | 621 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `ToastBannerView`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
 | `BancaRemota/Views.swift` | 2,595 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), help/manual (`TutorialView`, folds in the former `HelpView` — about, credits, privacy, disclaimer), settings (`ConfigView`, now also exports `codes.json`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, reminders (`RemindersListView`, `AddReminderView`, `ReminderDetailView`, `ReminderRow`, see §6), plus small shared helpers (`EmptyStateView`, `DetailRow`). |
 | `BancaRemota/codes.json` | 209 | Static, bundled dataset: 3 banks × 4 categories each, ~37 operations per bank (112 total), each with a name, description, SF Symbol icon name, USSD dial string, and optional `isLogin` / `isDefaultFavorite` flags. |
@@ -93,7 +93,7 @@ The `prefill` field is **app-specific metadata, not part of the upstream dataset
 - `activeScreen: ActiveScreen` — `.home | .bank | .tutorial | .config | .cuentasBanco | .cuentasNauta | .misClaves | .tasaCambio | .cuentasServicios | .recordatorios`
 - `selectedBankID: String` — which bank is active when `activeScreen == .bank`
 
-Because both are `@AppStorage`, **navigation state survives app relaunch** (the user reopens the app on the same screen they left, subject to the biometric lock re-triggering per §8).
+Because both are `@AppStorage`, **navigation state survives app relaunch** (the user reopens the app on the same screen they left, subject to the biometric lock re-triggering per §7).
 
 A custom side drawer (`SideMenuView`) is overlaid via a `ZStack` + `isMenuOpen` boolean, with a dimmed backdrop (tap to dismiss) and a `DragGesture` (swipe left to return home). It is not a system component — no `UISplitViewController`, no third-party drawer library.
 
@@ -154,7 +154,7 @@ Entry points that call the runner: `OperationCard` taps in `OperationsListView` 
 
 `KeyCategory.warning(forValue:)` returns an **advisory** string when a special key's value is non-numeric or longer than `maxPinLength`. It is rendered inline under the value field in orange and never disables Save — a wrong-looking PIN is still storable, since the real lengths are the bank's business and may change.
 
-Only **one** key may exist per special category. The constraint lives in `UserDataManager.canUseSpecialCategory(_:excluding:)`; `AddKeyView` enforces it by removing already-taken categories from its picker and disabling Save, so it cannot be violated through the UI. The categories are plain `KeyCategory` cases with new `rawValue`s, so previously stored `UserKey` blobs still decode unchanged — no migration needed (see §9 on the absence of a migration mechanism generally).
+Only **one** key may exist per special category. The constraint lives in `UserDataManager.canUseSpecialCategory(_:excluding:)`; `AddKeyView` enforces it by removing already-taken categories from its picker and disabling Save, so it cannot be violated through the UI. The categories are plain `KeyCategory` cases with new `rawValue`s, so previously stored `UserKey` blobs still decode unchanged — no migration needed (see §8 on the absence of a migration mechanism generally).
 
 On an `isLogin` operation, `OperationRunner.prepareAuthKey(bankId:)` looks up that bank's special key, copies it via `ClipboardService.copySensitive`, optionally shows a toast, then dials. If no such key is stored it does nothing at all — no error, no notification, the operation still dials.
 
@@ -168,7 +168,7 @@ Behaviour is user-controlled by `authKeyCopyMode` (`@AppStorage`, Settings → "
 
 `PrefillCopyMode` is shared by every prefill flow; each flow owns its own `@AppStorage` key and its own wording (`directLabel` for copy-immediately flows, `pickerLabel` for flows that list options first).
 
-`ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§8) can still trigger the copy even though the Keys screen refuses to render for them.
+`ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§7) can still trigger the copy even though the Keys screen refuses to render for them.
 
 ### 5.4 Implemented prefill: picker flows
 
@@ -241,65 +241,12 @@ Unlike a single on/off switch, `RemindersListView` renders one `Section` per `Re
 
 ### 6.5 Known limitations
 
-- No schema versioning on `Reminder`, same as every other `Codable` model in this app (see §9).
-- Local-only: a reminder configured on one device does not sync via iCloud — the optional sync layer (§9) only covers Nauta/bank/bills/keys, not reminders. A deliberate scope cut, not an oversight.
+- No schema versioning on `Reminder`, same as every other `Codable` model in this app (see §8).
+- Local-only: a reminder configured on one device does not sync via iCloud — the optional sync layer (§8) only covers Nauta/bank/bills/keys, not reminders. A deliberate scope cut, not an oversight.
 
 ---
 
-## 7. Siri & App Intents
-
-"Siri y Atajos de Voz" (a block inside `TutorialView`, the "Ayuda (Manual)" screen — placed just above "Privacidad y Seguridad", not in `ConfigView`; it's documentation with one action button, not settings) exposes bank operations to Siri, Spotlight, and the Shortcuts app via Apple's **App Intents** framework — not the legacy SiriKit `Intents.framework`. This distinction matters: App Intents live directly in the main app target as plain Swift types, need no separate Intents Extension, no `.intentdefinition` file, and no Siri capability/entitlement — the system finds them by reflection at install time. Everything here requires **iOS 16+**, one version above this app's real `IPHONEOS_DEPLOYMENT_TARGET` (15.6, §1) — every type is marked `@available(iOS 16.0, *)` so the app still builds and runs on 15.6, just without Siri.
-
-Its "Abrir Ajustes de Siri para Banca Remota" button opens `UIApplication.openSettingsURLString` — iOS's own per-app settings page, not anything this app controls. It exists because the one thing that can silently disable every phrase here is a device-level toggle this app has no API to read or change: Ajustes (iOS) › Siri y Buscar › Banca Remota › "Usar con Preguntar a Siri", on by default but user-togglable. No entitlement, no in-app toggle, and no runtime permission prompt are needed for App Intents themselves — only that one external switch is worth surfacing a shortcut to.
-
-### 7.1 The two `AppEnum`s and the intent
-
-```swift
-enum BankOption: String, AppEnum { case bpa, bandec, bm }
-enum QuickBankOperation: String, AppEnum {
-    case consultarSaldo, pagarLuz, pagarAgua, pagarGas, pagarTelefono,
-         recargarNauta, transferencia, autenticarse
-}
-struct EjecutarOperacionIntent: AppIntent {
-    @Parameter var operacion: QuickBankOperation
-    @Parameter(default: .bpa) var banco: BankOption
-    static var openAppWhenRun = true
-    func perform() async throws -> some IntentResult & ProvidesDialog { ... }
-}
-```
-
-`QuickBankOperation.operationId` maps each case to a fixed `BankOperation.id` (`op_2`, `op_6`, `op_9`, ...) that is **identical across `bpa`/`bandec`/`bm`** in `codes.json` — verified against the catalog, not assumed — so one id per case covers all three banks; only which *bank* to run it against needs asking.
-
-### 7.2 Re-enters the existing pipeline, doesn't duplicate it
-
-`EjecutarOperacionIntent.perform()` does exactly what a tap does — nothing more:
-
-```swift
-let operation = DataService.shared.operation(id: operacion.operationId, bankId: banco.rawValue)
-OperationRunner.shared.run(operation, bankId: banco.rawValue)
-```
-
-This means every Siri invocation automatically inherits §5's whole prefill pipeline: the user's copy-mode settings, the bill/Nauta/card picker when one applies (`PrefillSelectionView`, presented via `OperationRunner.pendingSelection` exactly as from the UI), and the system's own dial confirmation. `openAppWhenRun = true` is what makes this safe — it foregrounds `MainView` before `perform()` returns, so that picker (and the dialer) always has somewhere to appear; nothing here dials silently in the background. There is no separate "headless" dial path to keep in sync with the tap path.
-
-### 7.3 Fixed-parameter shortcuts need a real initializer
-
-`BancaRemotaShortcuts: AppShortcutsProvider` registers the always-available phrases. One phrase is fully generic (`"Ejecuta \(\.$operacion) en \(.applicationName)"`, letting Siri fill `operacion` from `QuickBankOperation`'s spoken forms); a second, "Consulta mi saldo en Banca Remota", pins `operacion` to `.consultarSaldo` ahead of time. That pinning **must** go through a real initializer —
-
-```swift
-AppShortcut(intent: EjecutarOperacionIntent(operacion: .consultarSaldo), phrases: [...])
-```
-
-— not a property set after `Self()` (`let i = EjecutarOperacionIntent(); i.operacion = .consultarSaldo`). The latter compiles but fails the build: Apple's `AppIntentsSSUTraining` build phase statically parses shortcut-registration source for the specific value each pre-configured intent will run with, and only recognizes a direct initializer call, not an arbitrary expression. `EjecutarOperacionIntent` therefore declares both `init()` (for Siri to construct and fill via the generic phrase) and `init(operacion:banco:)` (for this fixed-phrase case) side by side.
-
-### 7.4 Known limitations
-
-- Only the 8 operations in `QuickBankOperation` are voice-reachable — anything else (ONAT, Giro Postal, PIN changes, ...) has no intent and isn't planned to get one until there's a concrete request; the enum is deliberately small and curated, not generated from `codes.json`.
-- No bank auto-selection: if the user doesn't name a bank, `banco` defaults to `.bpa` (`@Parameter(default: .bpa)`) — there's no "last used bank" memory feeding this default.
-- Untested on-device by this change: App Intents/Shortcuts behavior (especially "Hey Siri" wake-word matching and the Shortcuts app's own suggestion surfacing) can only be verified on a physical device or Simulator with Siri enabled, not via `xcodebuild` alone.
-
----
-
-## 8. Authentication & App Lock
+## 7. Authentication & App Lock
 
 `AuthManager` (singleton `ObservableObject`) implements a lightweight "lock screen" gate, entirely local, using `LocalAuthentication` (`LAContext`, policy `.deviceOwnerAuthentication` — Face ID/Touch ID **or passcode fallback**, not biometric-only):
 
@@ -316,7 +263,7 @@ This means a user who never enables biometric lock cannot use the Keys manager o
 
 ---
 
-## 9. Local Persistence
+## 8. Local Persistence
 
 Everything user-generated is `Codable` and stored as JSON blobs in `UserDefaults.standard`, keyed by feature:
 
@@ -349,7 +296,7 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 
 ---
 
-## 10. Theming
+## 9. Theming
 
 - **Color scheme**: `darkModePreference` (`@AppStorage`, 0/1/2) maps to `.preferredColorScheme(nil/.light/.dark)` — note the inverted-looking ternary in `BancaRemotaApp` (`darkModePreference == 1 ? .light : (== 2 ? .dark : nil)`) is intentional given the picker's own tag mapping (1 = "Modo Claro", 2 = "Modo Oscuro"), just worth double-checking if this file is ever refactored, since the naming reads backwards at a glance.
 - **Accent color**: `Color.appPrimary` (`Models.swift`) is a computed static property, not a fixed asset-catalog color — it reads `useCustomFavoriteColor` and `favoriteCustomColorHex` from `UserDefaults` on every access and defaults to gold (`#B38B4D`). `ConfigView` exposes a `ColorPicker` that writes back through `Color.toHex()`. `MainView`'s root view uses `.id("\(useCustomFavoriteColor)_\(favoriteCustomColorHex)")` to force a full view-identity reset (and thus a redraw with the new color) whenever the accent changes — a pragmatic workaround for `Color.appPrimary` not being a `@Published`/reactive value.
@@ -358,23 +305,23 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 
 ---
 
-## 11. Cellular/Network Awareness
+## 10. Cellular/Network Awareness
 
 `CellularMonitor` wraps `CoreTelephony`'s `CTTelephonyNetworkInfo`, observing `CTServiceRadioAccessTechnologyDidChange` to classify the active radio access technology into a coarse `signalQuality` (0–3) and human-readable `networkType` (5G/4G-LTE/3G/2G-EDGE/no service). This does **not** measure signal bar strength (iOS does not expose that publicly) — it only reports which generation of network the modem is currently registered on, used as a proxy for "USSD is likely to work." `ConnectionBannerView` surfaces this as an optional banner under `TopNavBar` when `showNetworkStatus` is enabled.
 
 ---
 
-## 12. Recent/Notable Changes (from git history)
+## 11. Recent/Notable Changes (from git history)
 
 - Cellular signal monitor + `ConnectionBannerView` banner is a recent addition (feature commits `88ada12`, `b521f8d`).
 - USSD sync-check CI workflow (`096b00f`) formalizes `codes.json` as a downstream mirror of an external canonical source rather than an independently maintained list.
 
 ---
 
-## 13. Notable Constraints & Trade-offs (for future contributors)
+## 12. Notable Constraints & Trade-offs (for future contributors)
 
 - **`OperationRunner` is the only sanctioned USSD entry point**: calling `CallService.executeUSSD` directly from a new screen silently skips the prefill step (§5.1), so the operation dials without the data it needs. Route new call sites through the runner.
-- **"Cifrado militar" in `TutorialView` is marketing copy, not a technical claim**: treat it as such when reasoning about the app's guarantees. What is actually implemented is AES-GCM over an unsalted, single-iteration `SHA256(password)` key (§9), covering iCloud sync only — not exported backups, which are plaintext JSON. Do not cite that phrase as evidence of a security property, and do not weaken the implementation on the assumption that the phrase already overstates it.
+- **"Cifrado militar" in `TutorialView` is marketing copy, not a technical claim**: treat it as such when reasoning about the app's guarantees. What is actually implemented is AES-GCM over an unsalted, single-iteration `SHA256(password)` key (§8), covering iCloud sync only — not exported backups, which are plaintext JSON. Do not cite that phrase as evidence of a security property, and do not weaken the implementation on the assumption that the phrase already overstates it.
 - **No dependency injection / testability seams**: every service is a `static let shared` singleton accessed directly from views. Unit-testing a view in isolation currently means dealing with real `UserDefaults`/`Keychain`/`CryptoKit` state, not mocks.
 - **Silent failure on decode errors**: nearly every `JSONDecoder`/`JSONEncoder` call site uses `try?`, so a corrupted `UserDefaults` blob or a malformed imported backup fails silently (empty result) rather than surfacing an error to the user, except where `importBackup` explicitly returns `false`.
 - **No data migrations**: adding/renaming/retyping a field on any `Codable` model (`BankAccount`, `UserKey`, etc.) will silently drop previously stored data for existing users unless a custom decoder is written before shipping the change.
