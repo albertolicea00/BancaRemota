@@ -7,7 +7,6 @@
 ![Xcode](https://img.shields.io/badge/Xcode-15%2B-blue?logo=xcode&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
-[![USSD sync](https://github.com/albertolicea00/BancaRemota/actions/workflows/ussd-sync-check.yml/badge.svg)](https://github.com/albertolicea00/BancaRemota/actions/workflows/ussd-sync-check.yml)
 
 > Created to revive the original BancaRemota app after it disappeared.
 > Special credit to **Henry Cruz**, creator of the original version.
@@ -92,12 +91,6 @@ open BancaRemota.xcodeproj
 For a deeper technical breakdown (data flow, persistence, encryption, navigation model), see [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
-
-## 🔄 Code source of truth
-
-The USSD operations in [`BancaRemota/codes.json`](BancaRemota/codes.json) mirror the canonical [`cuba-banks`](https://github.com/albertolicea00/MyUSSDCodes-collection/blob/main/codes/cuba-banks.json) collection in **[MyUSSDCodes-collection](https://github.com/albertolicea00/MyUSSDCodes-collection)** — the single source of truth for USSD codes across all my apps.
-
-A weekly GitHub Action ([`ussd-sync-check`](.github/workflows/ussd-sync-check.yml)) compares the dial strings shipped here against that collection. It matches by **dial-string set**, so this app's bank grouping, favorites and Spanish labels stay exactly as they are — only the codes themselves are policed. On drift the run fails and opens a `ussd-sync` issue. **Fix codes upstream in MyUSSDCodes-collection first, then sync this file to match.**
 
 ## 🤝 Contributing
 

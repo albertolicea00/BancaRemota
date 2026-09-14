@@ -84,8 +84,6 @@ Currently ships 3 banks — BPA (`1E5F52`), BANDEC (`5B2A1F`), BM (`81D717`) —
 
 The `prefill` field is **app-specific metadata, not part of the upstream dataset**. The sync workflow below compares dial strings only, so it will not flag a resync that silently drops these tags — re-adding them is a manual step whenever `codes.json` is regenerated from upstream.
 
-**External sync guard**: a GitHub Actions workflow (`.github/workflows/ussd-sync-check.yml`, script `.github/scripts/check-ussd-sync.mjs`) runs weekly and on PRs touching `codes.json`. It diffs this file's *dial-string set* against the canonical `MyUSSDCodes-collection` repo (`cuba-banks.json`) — matching only on USSD codes, not labels/grouping/language — and opens a tracking issue on drift. This is a CI-side consistency check, not a runtime mechanism; the app itself never talks to that repo.
-
 ---
 
 ## 4. Navigation Model

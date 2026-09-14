@@ -20,7 +20,6 @@ Banca Remota has no backend, no servers, and no user accounts — all data (bank
 - Memory-safety or crash-inducing input in code that parses `codes.json` or user-provided data
 
 **Out of scope:**
-- Incorrect or outdated USSD dial codes — report those via a normal [Issue](https://github.com/albertolicea00/BancaRemota/issues) or in [MyUSSDCodes-collection](https://github.com/albertolicea00/MyUSSDCodes-collection), not as a security report.
 - Issues requiring a jailbroken device or physical access with the device already unlocked.
 - Social engineering, phishing, or issues in third-party carrier USSD infrastructure.
 
