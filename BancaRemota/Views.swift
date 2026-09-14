@@ -455,18 +455,16 @@ struct SideMenuView: View {
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
 
                     Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
-
-                    Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
 
-                    Divider().padding(.trailing, 40)
+                    Divider().padding(.trailing, 40)                    
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "info.circle", title: "Información", isSelected: activeScreen == .info) {
                         onSelectHelp()
                     }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda", isSelected: activeScreen == .tutorial) {
                         onSelectTutorial()
                     }
+                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "gearshape", title: "Configuración", isSelected: activeScreen == .config) {
                         onSelectConfig()
                     }
@@ -2279,17 +2277,38 @@ struct RemindersListView: View {
             TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Recordatorios")
 
             List {
-                Section(
-                    header: Text("PLANTILLAS RÁPIDAS").font(.system(size: 14, weight: .bold)).foregroundColor(.secondary),
-                    footer: Text("Actívalos para que te avisen antes de pagar. Empiezan todos apagados.")
-                ) {
-                    ForEach(ReminderTemplate.quickTemplates) { template in
-                        QuickReminderRow(
-                            template: template,
-                            existing: reminderManager.reminder(forTemplate: template.id),
-                            onEnable: { templateForNewReminder = template },
-                            onEdit: { reminderToEdit = $0 }
-                        )
+                // One section per template — each can hold any number of reminders (two houses'
+                // "Pagar Luz", three Nauta accounts, ...), not just a single on/off switch.
+                ForEach(ReminderTemplate.quickTemplates) { template in
+                    Section(
+                        header: Label(template.title, systemImage: template.iconName)
+                    ) {
+                        let instances = reminderManager.reminders(forTemplate: template.id)
+                        if instances.isEmpty {
+                            Text("Sin recordatorios de este tipo todavía.")
+                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                        } else {
+                            ForEach(instances) { reminder in
+                                ReminderRow(reminder: reminder)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { reminderToEdit = reminder }
+                                    .swipeActions {
+                                        Button(role: .destructive) {
+                                            reminderToDelete = reminder
+                                            showingDeleteAlert = true
+                                        } label: {
+                                            Label("Eliminar", systemImage: "trash")
+                                        }
+                                    }
+                            }
+                        }
+
+                        Button {
+                            templateForNewReminder = template
+                        } label: {
+                            Label("Agregar \(template.title)", systemImage: "plus.circle")
+                        }
                     }
                 }
 
@@ -2349,50 +2368,6 @@ struct RemindersListView: View {
     }
 }
 
-/// One row of the "Plantillas Rápidas" section — a toggle that creates the reminder (via
-/// `onEnable`) the first time it's switched on, and a separate pencil button (not the toggle
-/// itself) to review/edit one already configured, so tapping the row never fights the switch.
-private struct QuickReminderRow: View {
-    let template: ReminderTemplate
-    let existing: Reminder?
-    let onEnable: () -> Void
-    let onEdit: (Reminder) -> Void
-
-    @ObservedObject var reminderManager = ReminderManager.shared
-
-    var body: some View {
-        HStack {
-            Label(template.title, systemImage: template.iconName)
-
-            Spacer()
-
-            if let existing = existing {
-                Button(action: { onEdit(existing) }) {
-                    Image(systemName: "square.and.pencil")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Toggle("", isOn: Binding(
-                get: { existing?.isEnabled ?? false },
-                set: { isOn in
-                    if isOn {
-                        if let existing = existing {
-                            reminderManager.setEnabled(true, for: existing)
-                        } else {
-                            onEnable()
-                        }
-                    } else if let existing = existing {
-                        reminderManager.setEnabled(false, for: existing)
-                    }
-                }
-            ))
-            .labelsHidden()
-        }
-    }
-}
-
 struct ReminderRow: View {
     let reminder: Reminder
     @ObservedObject var reminderManager = ReminderManager.shared
@@ -2439,6 +2414,10 @@ struct AddReminderView: View {
     @State private var recurrence: ReminderRecurrenceKind = .none
     @State private var customIntervalDays: Int = 30
     @State private var linkedID: UUID? = nil
+    /// True once the user has typed into the title field themselves — until then, picking a
+    /// linked bill/account auto-fills "Pagar Luz — Casa de la Playa" so two reminders from the
+    /// same template (two houses, several Nauta accounts, ...) stay distinguishable at a glance.
+    @State private var isTitleCustomized = false
 
     private var linkOptions: [(id: UUID, label: String, detail: String)] {
         switch template.linkType {
@@ -2457,7 +2436,10 @@ struct AddReminderView: View {
         NavigationView {
             Form {
                 Section(header: Text("Recordatorio")) {
-                    TextField("Título", text: $title)
+                    TextField("Título", text: Binding(
+                        get: { title },
+                        set: { title = $0; isTitleCustomized = true }
+                    ))
                     TextField("Mensaje", text: $message)
                 }
 
@@ -2486,6 +2468,14 @@ struct AddReminderView: View {
                                 Text("Ninguno").tag(UUID?.none)
                                 ForEach(linkOptions, id: \.id) { option in
                                     Text("\(option.label) — \(option.detail)").tag(Optional(option.id))
+                                }
+                            }
+                            .onChange(of: linkedID) { newValue in
+                                guard !isTitleCustomized, reminderToEdit == nil else { return }
+                                if let newValue, let match = linkOptions.first(where: { $0.id == newValue }) {
+                                    title = "\(template.title) — \(match.label)"
+                                } else {
+                                    title = template.title
                                 }
                             }
                         }
