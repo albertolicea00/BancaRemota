@@ -46,6 +46,9 @@ Local PIN and password manager by category. Only accessible when Face ID / Touch
 ### 🔔 Reminders
 Local notifications (no server, no push) for payments/top-ups you need to make. Quick templates for Luz, Agua, Gas, Teléfono, Nauta, and Transferencia — each can be created any number of times (e.g. one per house or per Nauta account) and linked to a saved bill/account so the notification shows the real data and an "Ejecutar" button copies it and dials. Fully custom reminders also supported. Recurrence: once, daily, weekly, monthly, or every N days. All start off — nothing fires until you create one.
 
+### 🎙️ Siri & Shortcuts *(iOS 16+)*
+Built on Apple's `AppIntents` framework — no extra setup, no Siri capability/entitlement, works the moment you install the app. "Hey Siri, consulta mi saldo en Banca Remota" (or Pagar Luz/Agua/Gas/Teléfono, Recargar Nauta, Transferencia, Autenticarse, for whichever bank you name) opens the app and runs the exact same `OperationRunner` path a tap would — same copy-to-clipboard prefill, same bill/account picker if one applies, same system dial confirmation. See Configuración › Siri y Atajos de Voz in-app for the full phrase list.
+
 ### ⚙️ Settings
 
 - 🌓 Light / Dark / System theme
@@ -88,7 +91,7 @@ open BancaRemota.xcodeproj
 |------|-------------|
 | `codes.json` | Banks, categories, and USSD codes. Edit to add operations without touching code. |
 | `Models.swift` | `Codable` models for `codes.json` and user data (`BankAccount`, `NautaAccount`, `Bill`, `UserKey`, `Reminder`, `ReminderTemplate`). |
-| `Services.swift` | Config loading, USSD dialer, favorites management, data persistence, and reminder scheduling (`ReminderManager`, local notifications). |
+| `Services.swift` | Config loading, USSD dialer, favorites management, data persistence, reminder scheduling (`ReminderManager`, local notifications), and Siri/Shortcuts integration (`EjecutarOperacionIntent`, `BancaRemotaShortcuts`). |
 | `Views.swift` | All screens: navigation, lists, edit forms, and info views. |
 | `UIComponents.swift` | Reusable components: `TopNavBar`, `OperationCard`, `WalletCard`, `DataCard`, `MenuShortcutCard`, etc. |
 | `BancaRemotaApp.swift` | App entry point, authentication management, and theme preferences. |
