@@ -72,6 +72,8 @@ git clone https://github.com/albertolicea00/BancaRemota_app.git
 open BancaRemota.xcodeproj
 ```
 
+> **Note:** `BancaRemota` manages its Xcode project natively via `BancaRemota.xcodeproj` without using XcodeGen or external project generators.
+
 1. Configure your developer account in **Signing & Capabilities**
 2. Build and run on a physical device with `Cmd+R`
 
