@@ -450,9 +450,6 @@ struct SideMenuView: View {
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "wifi", title: "Cuentas de Nauta", isSelected: activeScreen == .cuentasNauta) { onSelectScreen(.cuentasNauta) }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns.fill", title: "Cuentas de Banco", isSelected: activeScreen == .cuentasBanco) { onSelectScreen(.cuentasBanco) }
 
-                    
-                    Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
 
                     Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
@@ -465,6 +462,7 @@ struct SideMenuView: View {
                         onSelectTutorial()
                     }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
+                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "gearshape", title: "Configuración", isSelected: activeScreen == .config) {
                         onSelectConfig()
                     }
@@ -707,6 +705,8 @@ struct TutorialView: View {
                     HelpSection(title: "Ajustar el copiado", content: "Cada uno de estos comportamientos se configura por separado en Configuración, con tres opciones: copiar y avisar, copiar sin aviso, o desactivarlo. En los que muestran un listado, desactivarlo significa que la app marca directamente sin preguntarte nada.\n\nSi no tienes nada guardado de ese tipo, la app no te muestra un listado vacío: simplemente marca.")
 
                     HelpSection(title: "Favoritos", content: "Desde Inicio puedes agregar operaciones frecuentes a Favoritos para acceder a ellas sin navegar por el banco. Mantén pulsado y arrastra para reordenarlas. Puedes personalizar el color de las tarjetas favoritas desde Configuración.")
+
+                    HelpSection(title: "Recordatorios", content: "En el menú lateral, 'Recordatorios' te avisa con una notificación cuando toca pagar o recargar algo — sin internet, sin servidor, todo en tu propio teléfono.\n\nHay una sección por plantilla (Luz, Agua, Gas, Teléfono, Nauta, Transferencia) y puedes agregar tantos recordatorios de cada una como necesites: uno por cada casa, línea o cuenta que manejes. Al crear uno, puedes vincularlo con una factura, cuenta Nauta o tarjeta ya guardada — la notificación mostrará ese dato, y su botón 'Ejecutar' lo copia al portapapeles y marca el código USSD por ti.\n\nElige cuándo avisarte una sola vez, todos los días, cada semana, cada mes o cada ciertos días. También puedes crear un recordatorio totalmente personalizado, sin plantilla. Todos empiezan sin ningún recordatorio activo: los creas tú, a tu medida.\n\nAl tocar la notificación se abre el detalle del recordatorio directamente. Desde la notificación misma también puedes 'Marcar como hecho' o 'Posponer 1 día' sin abrir la app.")
 
                     HelpSection(title: "Gestión de Tarjetas", content: "En 'Cuentas de Banco' puedes guardar los datos de tus tarjetas (número, titular, móvil asociado). Los números se muestran enmascarados pero puedes copiarlos al portapapeles. Toca una tarjeta para ver todos los detalles.")
 
