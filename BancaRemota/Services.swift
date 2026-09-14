@@ -4,6 +4,7 @@ import Network
 import CoreTelephony
 import UniformTypeIdentifiers
 import Contacts
+import UserNotifications
 
 let AppVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 let AppBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -820,6 +821,204 @@ class UserDataManager: ObservableObject {
         } catch {
             print("Decryption Error: \(error)")
             return nil
+        }
+    }
+}
+
+// MARK: - Reminders
+/// Local notifications only — no server, no push, consistent with the app's "no internet
+/// required" model. Persists to UserDefaults like `UserDataManager` and mirrors every stored
+/// `Reminder` to a scheduled `UNNotificationRequest` (or several, chained, for `.custom`).
+class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+    static let shared = ReminderManager()
+
+    static let categoryId = "REMINDER_CATEGORY"
+    static let markDoneAction = "REMINDER_MARK_DONE"
+    static let snoozeAction = "REMINDER_SNOOZE_1_DAY"
+
+    @Published var reminders: [Reminder] = [] { didSet { save(); rescheduleAll() } }
+    /// Set by the notification-tap handler; MainView presents this as a sheet so the user lands
+    /// on the reminder's own detail (with its linked data and an "Ejecutar" button) instead of a
+    /// bare banner.
+    @Published var deepLinkReminder: Reminder?
+
+    private override init() {
+        super.init()
+        load()
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(
+                identifier: Self.categoryId,
+                actions: [
+                    UNNotificationAction(identifier: Self.markDoneAction, title: "Marcar como hecho", options: []),
+                    UNNotificationAction(identifier: Self.snoozeAction, title: "Posponer 1 día", options: []),
+                ],
+                intentIdentifiers: [],
+                options: []
+            )
+        ])
+    }
+
+    func requestAuthorizationIfNeeded(completion: ((Bool) -> Void)? = nil) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            DispatchQueue.main.async { completion?(granted) }
+        }
+    }
+
+    func add(_ reminder: Reminder) {
+        reminders.append(reminder)
+    }
+
+    func update(_ reminder: Reminder) {
+        guard let index = reminders.firstIndex(where: { $0.id == reminder.id }) else { return }
+        reminders[index] = reminder
+    }
+
+    func delete(_ reminder: Reminder) {
+        reminders.removeAll { $0.id == reminder.id }
+    }
+
+    func setEnabled(_ isEnabled: Bool, for reminder: Reminder) {
+        guard var updated = reminders.first(where: { $0.id == reminder.id }) else { return }
+        updated.isEnabled = isEnabled
+        update(updated)
+    }
+
+    /// The quick-template reminder currently configured for `templateId`, if the user has turned
+    /// that row on. Nil means the template's toggle should read off.
+    func reminder(forTemplate templateId: String) -> Reminder? {
+        reminders.first { $0.templateKey == templateId }
+    }
+
+    var customReminders: [Reminder] {
+        reminders.filter { $0.templateKey == nil }
+    }
+
+    // MARK: Linked data
+    /// Display label + copyable value for whatever this reminder is linked to, resolved live
+    /// against `UserDataManager` (never a stale snapshot) — nil when unlinked or the linked item
+    /// was since deleted.
+    func linkedInfo(for reminder: Reminder) -> (label: String, value: String)? {
+        guard let linkedID = reminder.linkedID else { return nil }
+        let userData = UserDataManager.shared
+        switch reminder.linkType {
+        case .bill:
+            guard let bill = userData.bills.first(where: { $0.id == linkedID }) else { return nil }
+            return (bill.label, bill.billNumber)
+        case .nautaAccount:
+            guard let account = userData.nautaAccounts.first(where: { $0.id == linkedID }) else { return nil }
+            return (account.label, account.account)
+        case .bankAccount:
+            guard let account = userData.bankAccounts.first(where: { $0.id == linkedID }) else { return nil }
+            return (account.label.isEmpty ? account.name : account.label, account.cardNumber)
+        case .none:
+            return nil
+        }
+    }
+
+    /// Copies the linked value (if any) to the clipboard, then dials the reminder's USSD code —
+    /// same "copy then dial" sequence `OperationRunner` already does for a picked bill/account.
+    func execute(_ reminder: Reminder) {
+        if let info = linkedInfo(for: reminder) {
+            ClipboardService.shared.copySensitive(info.value)
+            ToastCenter.shared.show("Copiado al portapapeles: \(info.label)")
+        }
+        guard let code = reminder.ussdCode else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            CallService.shared.executeUSSD(code: code)
+        }
+    }
+
+    // MARK: Scheduling
+    private func rescheduleAll() {
+        let center = UNUserNotificationCenter.current()
+        center.removeAllPendingNotificationRequests()
+        for reminder in reminders where reminder.isEnabled {
+            schedule(reminder)
+        }
+    }
+
+    private func schedule(_ reminder: Reminder) {
+        let content = UNMutableNotificationContent()
+        content.title = reminder.title
+        content.body = linkedInfo(for: reminder).map { "\(reminder.message) (\($0.label): \($0.value))" } ?? reminder.message
+        content.sound = .default
+        content.categoryIdentifier = Self.categoryId
+        content.userInfo = ["reminderID": reminder.id.uuidString]
+
+        let calendar = Calendar.current
+        let request: UNNotificationRequest
+
+        switch reminder.recurrence {
+        case .none:
+            let trigger = UNCalendarNotificationTrigger(dateMatching: calendar.dateComponents([.year, .month, .day, .hour, .minute], from: reminder.date), repeats: false)
+            request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
+        case .daily:
+            let trigger = UNCalendarNotificationTrigger(dateMatching: calendar.dateComponents([.hour, .minute], from: reminder.date), repeats: true)
+            request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
+        case .weekly:
+            let trigger = UNCalendarNotificationTrigger(dateMatching: calendar.dateComponents([.weekday, .hour, .minute], from: reminder.date), repeats: true)
+            request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
+        case .monthly:
+            // iOS simply skips a month that doesn't have this day (e.g. day 31 in February) —
+            // acceptable for a bill reminder, which is what this recurrence is meant for.
+            let trigger = UNCalendarNotificationTrigger(dateMatching: calendar.dateComponents([.day, .hour, .minute], from: reminder.date), repeats: true)
+            request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
+        case .custom:
+            // A repeating time-interval trigger fires `interval` seconds after it's *scheduled*,
+            // not at `reminder.date` — iOS has no "start on this date, then repeat every N days"
+            // trigger. The chosen date/time only seeds the first schedule() call; after that it
+            // drifts to whenever the app last rescheduled it.
+            let interval = max(60, TimeInterval(reminder.customIntervalDays) * 86400)
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: true)
+            request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
+        }
+
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: Persistence
+    private func save() {
+        if let encoded = try? JSONEncoder().encode(reminders) {
+            UserDefaults.standard.set(encoded, forKey: "reminders")
+        }
+    }
+
+    private func load() {
+        if let data = UserDefaults.standard.data(forKey: "reminders"),
+           let decoded = try? JSONDecoder().decode([Reminder].self, from: data) {
+            reminders = decoded
+        }
+    }
+
+    // MARK: UNUserNotificationCenterDelegate
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .list])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        defer { completionHandler() }
+        guard let idString = response.notification.request.content.userInfo["reminderID"] as? String,
+              let id = UUID(uuidString: idString),
+              let reminder = reminders.first(where: { $0.id == id }) else { return }
+
+        switch response.actionIdentifier {
+        case Self.markDoneAction:
+            setEnabled(false, for: reminder)
+        case Self.snoozeAction:
+            let content = UNMutableNotificationContent()
+            content.title = reminder.title
+            content.body = reminder.message
+            content.sound = .default
+            content.categoryIdentifier = Self.categoryId
+            content.userInfo = ["reminderID": reminder.id.uuidString]
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 86400, repeats: false)
+            let request = UNNotificationRequest(identifier: "\(reminder.id.uuidString)_snooze_\(UUID().uuidString)", content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(request)
+        default:
+            DispatchQueue.main.async {
+                self.deepLinkReminder = reminder
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ struct IdentifiableURL: Identifiable {
 }
 
 enum ActiveScreen: String {
-    case home, bank, info, tutorial, config, cuentasBanco, cuentasNauta, misClaves, tasaCambio, cuentasServicios
+    case home, bank, info, tutorial, config, cuentasBanco, cuentasNauta, misClaves, tasaCambio, cuentasServicios, recordatorios
 }
 
 // MARK: - Navigation Hub View
@@ -17,6 +17,7 @@ struct MainView: View {
     @State private var isMenuOpen = false
     @AppStorage("activeScreen") private var activeScreen: ActiveScreen = .home
     @ObservedObject private var operationRunner = OperationRunner.shared
+    @ObservedObject private var reminderManager = ReminderManager.shared
     
     private var selectedBank: Bank? {
         config?.banks.first { $0.id == selectedBankID }
@@ -56,6 +57,8 @@ struct MainView: View {
                         UnderConstructionView(title: "Tasa de Cambio", onMenuTap: { withAnimation { isMenuOpen.toggle() } })
                     case .cuentasServicios:
                         BillsListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                    case .recordatorios:
+                        RemindersListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
                     }
                 } else {
                     ProgressView("Loading Configuration...")
@@ -126,6 +129,10 @@ struct MainView: View {
             PrefillSelectionView(request: request) { option in
                 operationRunner.completeSelection(option)
             }
+        }
+        // Notification tap lands here regardless of which screen was showing.
+        .sheet(item: $reminderManager.deepLinkReminder) { reminder in
+            ReminderDetailView(reminder: reminder)
         }
     }
 }
@@ -446,6 +453,9 @@ struct SideMenuView: View {
                     
                     Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
+
+                    Divider().padding(.trailing, 40)
+                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
 
                     Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
@@ -2252,5 +2262,368 @@ struct DetailRow: View {
         }
         .padding(.vertical, 8)
         Divider()
+    }
+}
+
+// MARK: - Reminders List
+struct RemindersListView: View {
+    let onMenuTap: () -> Void
+    @ObservedObject var reminderManager = ReminderManager.shared
+    @State private var templateForNewReminder: ReminderTemplate?
+    @State private var reminderToEdit: Reminder?
+    @State private var reminderToDelete: Reminder?
+    @State private var showingDeleteAlert = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Recordatorios")
+
+            List {
+                Section(
+                    header: Text("PLANTILLAS RÁPIDAS").font(.system(size: 14, weight: .bold)).foregroundColor(.secondary),
+                    footer: Text("Actívalos para que te avisen antes de pagar. Empiezan todos apagados.")
+                ) {
+                    ForEach(ReminderTemplate.quickTemplates) { template in
+                        QuickReminderRow(
+                            template: template,
+                            existing: reminderManager.reminder(forTemplate: template.id),
+                            onEnable: { templateForNewReminder = template },
+                            onEdit: { reminderToEdit = $0 }
+                        )
+                    }
+                }
+
+                Section(header: Text("PERSONALIZADOS").font(.system(size: 14, weight: .bold)).foregroundColor(.secondary)) {
+                    if reminderManager.customReminders.isEmpty {
+                        Text("Sin recordatorios personalizados.")
+                            .foregroundColor(.secondary)
+                            .font(.subheadline)
+                    } else {
+                        ForEach(reminderManager.customReminders) { reminder in
+                            ReminderRow(reminder: reminder)
+                                .contentShape(Rectangle())
+                                .onTapGesture { reminderToEdit = reminder }
+                                .swipeActions {
+                                    Button(role: .destructive) {
+                                        reminderToDelete = reminder
+                                        showingDeleteAlert = true
+                                    } label: {
+                                        Label("Eliminar", systemImage: "trash")
+                                    }
+                                }
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+
+            Button(action: { templateForNewReminder = .custom }) {
+                Label("Nuevo Recordatorio Personalizado", systemImage: "plus.circle.fill")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.appPrimary)
+                    .cornerRadius(12)
+                    .padding()
+            }
+        }
+        .background(Color(UIColor.systemGroupedBackground))
+        .sheet(item: $templateForNewReminder) { template in
+            AddReminderView(template: template)
+        }
+        .sheet(item: $reminderToEdit) { reminder in
+            AddReminderView(
+                template: ReminderTemplate.quickTemplates.first { $0.id == reminder.templateKey } ?? .custom,
+                reminderToEdit: reminder
+            )
+        }
+        .alert("¿Eliminar recordatorio?", isPresented: $showingDeleteAlert) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Eliminar", role: .destructive) {
+                if let reminder = reminderToDelete { reminderManager.delete(reminder) }
+            }
+        } message: {
+            Text("Esta acción no se puede deshacer.")
+        }
+    }
+}
+
+/// One row of the "Plantillas Rápidas" section — a toggle that creates the reminder (via
+/// `onEnable`) the first time it's switched on, and a separate pencil button (not the toggle
+/// itself) to review/edit one already configured, so tapping the row never fights the switch.
+private struct QuickReminderRow: View {
+    let template: ReminderTemplate
+    let existing: Reminder?
+    let onEnable: () -> Void
+    let onEdit: (Reminder) -> Void
+
+    @ObservedObject var reminderManager = ReminderManager.shared
+
+    var body: some View {
+        HStack {
+            Label(template.title, systemImage: template.iconName)
+
+            Spacer()
+
+            if let existing = existing {
+                Button(action: { onEdit(existing) }) {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Toggle("", isOn: Binding(
+                get: { existing?.isEnabled ?? false },
+                set: { isOn in
+                    if isOn {
+                        if let existing = existing {
+                            reminderManager.setEnabled(true, for: existing)
+                        } else {
+                            onEnable()
+                        }
+                    } else if let existing = existing {
+                        reminderManager.setEnabled(false, for: existing)
+                    }
+                }
+            ))
+            .labelsHidden()
+        }
+    }
+}
+
+struct ReminderRow: View {
+    let reminder: Reminder
+    @ObservedObject var reminderManager = ReminderManager.shared
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: reminder.iconName)
+                .foregroundColor(.white)
+                .frame(width: 36, height: 36)
+                .background(Color.appPrimary)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(reminder.title).font(.headline)
+                Text("\(reminder.recurrence.label) · \(DateFormatter.localizedString(from: reminder.date, dateStyle: .medium, timeStyle: .short))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { reminder.isEnabled },
+                set: { reminderManager.setEnabled($0, for: reminder) }
+            ))
+            .labelsHidden()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Add/Edit Reminder
+struct AddReminderView: View {
+    @Environment(\.presentationMode) var presentationMode
+    let template: ReminderTemplate
+    var reminderToEdit: Reminder? = nil
+
+    @ObservedObject var userData = UserDataManager.shared
+    @ObservedObject var reminderManager = ReminderManager.shared
+
+    @State private var title: String = ""
+    @State private var message: String = ""
+    @State private var date: Date = Date().addingTimeInterval(3600)
+    @State private var recurrence: ReminderRecurrenceKind = .none
+    @State private var customIntervalDays: Int = 30
+    @State private var linkedID: UUID? = nil
+
+    private var linkOptions: [(id: UUID, label: String, detail: String)] {
+        switch template.linkType {
+        case .bill:
+            return userData.bills.filter { $0.type == template.billType }.map { ($0.id, $0.label, $0.billNumber) }
+        case .nautaAccount:
+            return userData.nautaAccounts.map { ($0.id, $0.label, $0.account) }
+        case .bankAccount:
+            return userData.bankAccounts.map { ($0.id, $0.label.isEmpty ? $0.name : $0.label, $0.cardNumber) }
+        case .none:
+            return []
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Recordatorio")) {
+                    TextField("Título", text: $title)
+                    TextField("Mensaje", text: $message)
+                }
+
+                Section(header: Text("Cuándo")) {
+                    DatePicker("Fecha y hora", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                    Picker("Repetir", selection: $recurrence) {
+                        ForEach(ReminderRecurrenceKind.allCases) { kind in
+                            Text(kind.label).tag(kind)
+                        }
+                    }
+                    if recurrence == .custom {
+                        Stepper("Cada \(customIntervalDays) días", value: $customIntervalDays, in: 2...365)
+                    }
+                }
+
+                if template.linkType != .none {
+                    Section(
+                        header: Text("Dato Guardado"),
+                        footer: Text("Se copiará al portapapeles y se mostrará en la notificación.")
+                    ) {
+                        if linkOptions.isEmpty {
+                            Text("No tienes datos guardados de este tipo todavía.")
+                                .foregroundColor(.secondary)
+                        } else {
+                            Picker("Vincular", selection: $linkedID) {
+                                Text("Ninguno").tag(UUID?.none)
+                                ForEach(linkOptions, id: \.id) { option in
+                                    Text("\(option.label) — \(option.detail)").tag(Optional(option.id))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(reminderToEdit == nil ? template.title : "Editar Recordatorio")
+            .navigationBarItems(
+                leading: Button("Cancelar") { presentationMode.wrappedValue.dismiss() },
+                trailing: Button("Guardar") { save() }
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+            )
+            .onAppear { populate() }
+        }
+    }
+
+    private func populate() {
+        if let edit = reminderToEdit {
+            title = edit.title
+            message = edit.message
+            date = edit.date
+            recurrence = edit.recurrence
+            customIntervalDays = edit.customIntervalDays
+            linkedID = edit.linkedID
+        } else {
+            title = template.title
+            message = template.message
+            recurrence = template.defaultRecurrence
+        }
+    }
+
+    private func save() {
+        let reminder = Reminder(
+            id: reminderToEdit?.id ?? UUID(),
+            title: title,
+            message: message,
+            iconName: template.iconName,
+            ussdCode: template.ussdCode,
+            linkType: template.linkType,
+            linkedID: linkedID,
+            date: date,
+            recurrence: recurrence,
+            customIntervalDays: customIntervalDays,
+            isEnabled: true,
+            templateKey: template.id == ReminderTemplate.custom.id ? nil : template.id
+        )
+
+        reminderManager.requestAuthorizationIfNeeded()
+        if reminderToEdit != nil {
+            reminderManager.update(reminder)
+        } else {
+            reminderManager.add(reminder)
+        }
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+// MARK: - Reminder Detail (opened from the list or from a notification tap)
+struct ReminderDetailView: View {
+    @Environment(\.presentationMode) var presentationMode
+    let reminder: Reminder
+    @ObservedObject var reminderManager = ReminderManager.shared
+    @State private var showingDeleteAlert = false
+
+    private var linkedInfo: (label: String, value: String)? {
+        reminderManager.linkedInfo(for: reminder)
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    VStack(spacing: 12) {
+                        Image(systemName: reminder.iconName)
+                            .font(.system(size: 40))
+                            .foregroundColor(.white)
+                            .frame(width: 80, height: 80)
+                            .background(Color.appPrimary)
+                            .clipShape(Circle())
+                        Text(reminder.title).font(.title2).fontWeight(.bold)
+                        if !reminder.message.isEmpty {
+                            Text(reminder.message)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    .padding(.top)
+
+                    VStack(spacing: 16) {
+                        DetailRow(label: "Repetición", value: reminder.recurrence.label)
+                        DetailRow(label: "Próxima Vez", value: DateFormatter.localizedString(from: reminder.date, dateStyle: .medium, timeStyle: .short))
+                        if let info = linkedInfo {
+                            DetailRow(label: info.label, value: info.value, isMonospaced: true, canCopy: true)
+                        }
+                    }
+                    .padding()
+                    .background(Color(UIColor.secondarySystemGroupedBackground))
+                    .cornerRadius(16)
+                    .padding(.horizontal)
+
+                    if reminder.ussdCode != nil {
+                        Button(action: {
+                            reminderManager.execute(reminder)
+                            presentationMode.wrappedValue.dismiss()
+                        }) {
+                            Label("Ejecutar", systemImage: "phone.fill")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.appPrimary)
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Button(role: .destructive, action: { showingDeleteAlert = true }) {
+                        Label("Eliminar Recordatorio", systemImage: "trash")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.bottom)
+            }
+            .background(Color(UIColor.systemGroupedBackground))
+            .navigationTitle("Recordatorio")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(trailing: Button("Cerrar") { presentationMode.wrappedValue.dismiss() })
+            .alert("¿Eliminar recordatorio?", isPresented: $showingDeleteAlert) {
+                Button("Cancelar", role: .cancel) {}
+                Button("Eliminar", role: .destructive) {
+                    reminderManager.delete(reminder)
+                    presentationMode.wrappedValue.dismiss()
+                }
+            } message: {
+                Text("Esta acción no se puede deshacer.")
+            }
+        }
     }
 }

@@ -278,6 +278,77 @@ enum KeyCategory: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - Reminders
+enum ReminderRecurrenceKind: String, Codable, CaseIterable, Identifiable {
+    case none, daily, weekly, monthly, custom
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .none: return "Una vez"
+        case .daily: return "Cada día"
+        case .weekly: return "Cada semana"
+        case .monthly: return "Cada mes"
+        case .custom: return "Cada N días"
+        }
+    }
+}
+
+/// What saved data (if any) a reminder is tied to, so its detail screen can show the real
+/// bill/account value and copy it to the clipboard before dialing — the whole point of "ya con
+/// la factura y todo guardado" instead of a bare text reminder.
+enum ReminderLinkType: String, Codable, CaseIterable {
+    case none, bill, nautaAccount, bankAccount
+}
+
+struct Reminder: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var title: String
+    var message: String
+    var iconName: String
+    /// Fixed USSD dial string snapshotted from the template at creation time (e.g. "*444*41#").
+    /// Nil for a fully custom reminder with no direct action — same code across bpa/bandec/bm for
+    /// every templated operation, so no bankId needs to be carried alongside it.
+    var ussdCode: String?
+    var linkType: ReminderLinkType = .none
+    var linkedID: UUID? = nil
+    var date: Date
+    var recurrence: ReminderRecurrenceKind = .monthly
+    /// Only meaningful when `recurrence == .custom`.
+    var customIntervalDays: Int = 30
+    var isEnabled: Bool = true
+    /// Which `ReminderTemplate.id` this came from, so the quick-toggle list in Recordatorios can
+    /// tell which template row it belongs to. Nil for a custom (from-scratch) reminder.
+    var templateKey: String? = nil
+}
+
+/// A starting point offered in the Recordatorios "+" flow: prefills title/message/icon/USSD code
+/// and, when `linkType != .none`, lets the user pick which saved bill/Nauta/card it's about.
+struct ReminderTemplate: Identifiable {
+    let id: String
+    let title: String
+    let message: String
+    let iconName: String
+    let ussdCode: String?
+    let linkType: ReminderLinkType
+    /// Narrows the bill picker to this type when `linkType == .bill`. Nil otherwise.
+    let billType: BillType?
+    let defaultRecurrence: ReminderRecurrenceKind
+
+    static let quickTemplates: [ReminderTemplate] = [
+        ReminderTemplate(id: "luz", title: "Pagar Luz", message: "Recuerda pagar la factura de electricidad.", iconName: "bolt.fill", ussdCode: "*444*41#", linkType: .bill, billType: .electricity, defaultRecurrence: .monthly),
+        ReminderTemplate(id: "agua", title: "Pagar Agua", message: "Recuerda pagar la factura de agua.", iconName: "drop.fill", ussdCode: "*444*51#", linkType: .bill, billType: .water, defaultRecurrence: .monthly),
+        ReminderTemplate(id: "gas", title: "Pagar Gas", message: "Recuerda pagar la factura de gas.", iconName: "flame.fill", ussdCode: "*444*67#", linkType: .bill, billType: .gas, defaultRecurrence: .monthly),
+        ReminderTemplate(id: "telefono", title: "Pagar Teléfono", message: "Recuerda pagar la factura de teléfono.", iconName: "phone.fill", ussdCode: "*444*42#", linkType: .bill, billType: .telephone, defaultRecurrence: .monthly),
+        ReminderTemplate(id: "nauta", title: "Recargar Nauta", message: "Recuerda recargar tu cuenta Nauta.", iconName: "wifi", ussdCode: "*444*59#", linkType: .nautaAccount, billType: nil, defaultRecurrence: .monthly),
+        ReminderTemplate(id: "transferencia", title: "Hacer Transferencia", message: "Recuerda hacer tu transferencia.", iconName: "arrow.left.arrow.right", ussdCode: "*444*45#", linkType: .bankAccount, billType: nil, defaultRecurrence: .none),
+    ]
+
+    /// The "start from scratch" option: no fixed code, no linked data — just title/message/date.
+    static let custom = ReminderTemplate(id: "personalizado", title: "Recordatorio Personalizado", message: "", iconName: "bell.fill", ussdCode: nil, linkType: .none, billType: nil, defaultRecurrence: .none)
+}
+
 // MARK: - Auto-copy Behaviour (Settings)
 /// What the app does when an operation needs a stored value. Shared by every prefill flow;
 /// only the wording differs between flows that copy straight away and flows that ask first.
