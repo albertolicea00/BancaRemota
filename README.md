@@ -97,6 +97,14 @@ For a deeper technical breakdown (data flow, persistence, encryption, navigation
 
 ---
 
+## 🚧 Known Limitations
+
+- **Physical dual-SIM (two nano-SIM) devices.** iPhone models sold in mainland China, Hong Kong, and Macao support two physical nano-SIMs, instead of the nano-SIM + eSIM combo sold everywhere else. This app has no line-selection UI and no way to force a dial through one SIM specifically — iOS gives apps no public API to pick which line places a `tel://`/USSD call; it always goes out through whichever line the device's own Phone settings mark as default. Acknowledged, not implemented.
+
+- **No iPad / iPadOS support for USSD.** Even though Cellular iPad models exist (with physical SIM or eSIM slots), Apple completely blocks USSD code execution on iPadOS. iPadOS lacks a full Phone dialer application, which means users cannot dial USSD codes (such as `*944#` or `*966#`), trigger `tel://*944%23` URLs from third-party apps, or receive USSD network responses.
+
+---
+
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
