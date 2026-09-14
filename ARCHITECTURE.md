@@ -1,6 +1,6 @@
 # BancaRemota :: Architecture
 
-**Last updated:** 2026-08-23 · **Doc version:** 1.6 · **Last commit documented:** `c803b61`
+**Last updated:** 2026-09-14 · **Doc version:** 1.7 · **Last commit documented:** `a05d349`
 
 ---
 
@@ -41,7 +41,7 @@ FavoritesManager  OperationRunner               UserDataManager (CRUD + persiste
   DataService ── loads BancaRemota/codes.json (bundled, read-only) ──▶ BankConfig
 ```
 
-There is no MVVM view-model layer in the classic sense; screens are SwiftUI `View`s that read/write a handful of singleton `ObservableObject`s directly (`FavoritesManager`, `UserDataManager`, `AuthManager`, `CellularMonitor`) plus `@AppStorage` for simple flags. This keeps the codebase small (≈3,150 lines of Swift across 5 files) at the cost of view/service coupling — acceptable for an app of this scope, but worth knowing if it grows.
+There is no MVVM view-model layer in the classic sense; screens are SwiftUI `View`s that read/write a handful of singleton `ObservableObject`s directly (`FavoritesManager`, `UserDataManager`, `AuthManager`, `CellularMonitor`, `ReminderManager`) plus `@AppStorage` for simple flags. This keeps the codebase small (≈4,700 lines of Swift across 5 files) at the cost of view/service coupling — acceptable for an app of this scope, but worth knowing if it grows.
 
 ---
 
@@ -50,10 +50,10 @@ There is no MVVM view-model layer in the classic sense; screens are SwiftUI `Vie
 | File | Lines | Responsibility |
 |---|---|---|
 | `BancaRemota/BancaRemotaApp.swift` | 53 | `@main` entry point. Hosts `MainView`, overlays the biometric lock screen, applies the dark/light/system theme, and forwards `ScenePhase` changes to `AuthManager`. |
-| `BancaRemota/Models.swift` | 218 | All `Codable` data models: static config models (`Bank`, `OperationCategory`, `BankOperation`), user-data models (`NautaAccount`, `BankAccount`, `Bill`, `UserKey`), `FavoritesManager`, and the `Color(hex:)` / `toHex()` extension. |
-| `BancaRemota/Services.swift` | 522 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ContactsService` (address-book read for the mobile top-up picker), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption). |
-| `BancaRemota/UIComponents.swift` | 595 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `ToastBannerView`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
-| `BancaRemota/Views.swift` | 1,906 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), info/help (`HelpView`, `TutorialView`), settings (`ConfigView`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, plus small shared helpers (`EmptyStateView`, `DetailRow`). |
+| `BancaRemota/Models.swift` | 379 | All `Codable` data models: static config models (`Bank`, `OperationCategory`, `BankOperation`), user-data models (`NautaAccount`, `BankAccount`, `Bill`, `UserKey`), reminder models (`Reminder`, `ReminderTemplate`, `ReminderRecurrenceKind`, `ReminderLinkType`, see §6), `FavoritesManager`, and the `Color(hex:)` / `toHex()` extension. |
+| `BancaRemota/Services.swift` | 1,024 | All singleton services: `DataService` (loads and caches `codes.json`, bank lookup by id), `AuthManager` (biometric gate + session expiry), `CellularMonitor` (radio signal banner), `CallService` (USSD dialer), `ClipboardService` (expiring, device-local copy of secrets), `ContactsService` (address-book read for the mobile top-up picker), `ToastCenter` (in-app banner queue), `OperationRunner` (prefill resolution + dial, see §5), `KeychainHelper`, `UserDataManager` (CRUD + local/iCloud persistence + AES-GCM encryption), `ReminderManager` (local-notification scheduling, see §6). |
+| `BancaRemota/UIComponents.swift` | 621 | Reusable, presentation-only views: `TopNavBar`, `ConnectionBannerView`, `OperationCard`, `BankSelectionCard`, `ToastBannerView`, `MenuShortcutCard`, `DataCard` (swipeable data row — swipe gesture currently commented out, tap-to-copy is the active interaction), `WalletCard` (virtual card visual), `ActivityView` (share sheet), `DocumentPicker` (file importer). |
+| `BancaRemota/Views.swift` | 2,621 | All screens: navigation shell (`MainView`, `SideMenuView`), bank browsing (`BankSelectionView`, `OperationsListView`), info/help (`HelpView`, `TutorialView`), settings (`ConfigView`), the four personal-data CRUD sections (Nauta, Bank Accounts, Bills, Keys) and their add/edit forms, reminders (`RemindersListView`, `AddReminderView`, `ReminderDetailView`, `ReminderRow`, see §6), plus small shared helpers (`EmptyStateView`, `DetailRow`). |
 | `BancaRemota/codes.json` | 209 | Static, bundled dataset: 3 banks × 4 categories each, ~37 operations per bank (112 total), each with a name, description, SF Symbol icon name, USSD dial string, and optional `isLogin` / `isDefaultFavorite` flags. |
 | `BancaRemota.xcassets/banks/` | — | Per-bank image assets (`icon`, `logo`, `card`, `background`, `banner`) for `bpa`, `bandec`, `bm`, plus unused/reserved `bc` and `red` asset groups. |
 
@@ -90,10 +90,10 @@ The `prefill` field is **app-specific metadata, not part of the upstream dataset
 
 `MainView` is a hand-rolled, single-screen state machine — there is no `NavigationStack`/`NavigationView` push hierarchy for the main flow. Navigation state is two `@AppStorage`-backed enums/strings:
 
-- `activeScreen: ActiveScreen` — `.home | .bank | .info | .tutorial | .config | .cuentasBanco | .cuentasNauta | .misClaves | .tasaCambio | .cuentasServicios`
+- `activeScreen: ActiveScreen` — `.home | .bank | .info | .tutorial | .config | .cuentasBanco | .cuentasNauta | .misClaves | .tasaCambio | .cuentasServicios | .recordatorios`
 - `selectedBankID: String` — which bank is active when `activeScreen == .bank`
 
-Because both are `@AppStorage`, **navigation state survives app relaunch** (the user reopens the app on the same screen they left, subject to the biometric lock re-triggering per §6).
+Because both are `@AppStorage`, **navigation state survives app relaunch** (the user reopens the app on the same screen they left, subject to the biometric lock re-triggering per §7).
 
 A custom side drawer (`SideMenuView`) is overlaid via a `ZStack` + `isMenuOpen` boolean, with a dimmed backdrop (tap to dismiss) and a `DragGesture` (swipe left to return home). It is not a system component — no `UISplitViewController`, no third-party drawer library.
 
@@ -154,7 +154,7 @@ Entry points that call the runner: `OperationCard` taps in `OperationsListView` 
 
 `KeyCategory.warning(forValue:)` returns an **advisory** string when a special key's value is non-numeric or longer than `maxPinLength`. It is rendered inline under the value field in orange and never disables Save — a wrong-looking PIN is still storable, since the real lengths are the bank's business and may change.
 
-Only **one** key may exist per special category. The constraint lives in `UserDataManager.canUseSpecialCategory(_:excluding:)`; `AddKeyView` enforces it by removing already-taken categories from its picker and disabling Save, so it cannot be violated through the UI. The categories are plain `KeyCategory` cases with new `rawValue`s, so previously stored `UserKey` blobs still decode unchanged — no migration needed (see §7 on the absence of a migration mechanism generally).
+Only **one** key may exist per special category. The constraint lives in `UserDataManager.canUseSpecialCategory(_:excluding:)`; `AddKeyView` enforces it by removing already-taken categories from its picker and disabling Save, so it cannot be violated through the UI. The categories are plain `KeyCategory` cases with new `rawValue`s, so previously stored `UserKey` blobs still decode unchanged — no migration needed (see §8 on the absence of a migration mechanism generally).
 
 On an `isLogin` operation, `OperationRunner.prepareAuthKey(bankId:)` looks up that bank's special key, copies it via `ClipboardService.copySensitive`, optionally shows a toast, then dials. If no such key is stored it does nothing at all — no error, no notification, the operation still dials.
 
@@ -168,7 +168,7 @@ Behaviour is user-controlled by `authKeyCopyMode` (`@AppStorage`, Settings → "
 
 `PrefillCopyMode` is shared by every prefill flow; each flow owns its own `@AppStorage` key and its own wording (`directLabel` for copy-immediately flows, `pickerLabel` for flows that list options first).
 
-`ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§6) can still trigger the copy even though the Keys screen refuses to render for them.
+`ClipboardService.copySensitive` writes the pasteboard with `.localOnly: true` (never leaves the device via Universal Clipboard) and `.expirationDate` at +120s, so a PIN does not sit in the pasteboard indefinitely. Note the gap: this path only depends on `userKeys` being non-empty, not on `authEnabled` — a user who imported a backup and never enabled the app lock (§7) can still trigger the copy even though the Keys screen refuses to render for them.
 
 ### 5.4 Implemented prefill: picker flows
 
@@ -212,7 +212,41 @@ Access denied is the one case that surfaces a warning toast (in `copyAndNotify` 
 
 ---
 
-## 6. Authentication & App Lock
+## 6. Reminders & Local Notifications
+
+"Recordatorios" (side menu, `ActiveScreen.recordatorios`) schedules iOS local notifications for a payment/top-up the user needs to make — entirely on-device, no push infrastructure, no server, consistent with the app's "no internet required" design.
+
+### 6.1 Model & manager
+
+- `Reminder` (`Models.swift`): `title`, `message`, `iconName`, `ussdCode` (nilable snapshot of a fixed dial string), `linkType`/`linkedID` (optional reference into `UserDataManager`'s `bills`/`nautaAccounts`/`bankAccounts`), `date`, `recurrence` (`ReminderRecurrenceKind`: `.none`/`.daily`/`.weekly`/`.monthly`/`.custom`), `customIntervalDays`, `isEnabled`, `templateKey`.
+- `ReminderTemplate` (`Models.swift`, static catalog): the 6 "plantillas rápidas" — Luz, Agua, Gas, Teléfono, Nauta, Transferencia — plus `.custom` (from-scratch, no fixed code, no linked data). Each snapshots a fixed `ussdCode`: verified against `codes.json`, the dial string for a given templated operation (e.g. Electricidad `*444*41#`) is identical across `bpa`/`bandec`/`bm`, so a reminder needs no `bankId` to know what to dial.
+- `ReminderManager` (`Services.swift`, `NSObject` + `ObservableObject` + `UNUserNotificationCenterDelegate` singleton): CRUD over `reminders` (`UserDefaults`-backed, same save-on-`didSet` pattern as `UserDataManager`), schedules/reschedules `UNNotificationRequest`s on every mutation, and handles notification taps/actions.
+
+### 6.2 Multiple instances per template
+
+Unlike a single on/off switch, `RemindersListView` renders one `Section` per `ReminderTemplate` with every matching `Reminder` (`ReminderManager.reminders(forTemplate:)`) listed underneath, plus an "Agregar `<template>`" row — so the same template (e.g. "Pagar Luz") can be reused any number of times (two houses, several Nauta accounts, ...). `AddReminderView` auto-suggests a distinguishing title ("Pagar Luz — Casa de la Playa") from the linked bill/account's label the first time one is picked, unless the user has already typed a custom title (`isTitleCustomized` flag) — otherwise every instance created from the same template would default to an identical, indistinguishable title.
+
+### 6.3 Scheduling
+
+- `.none` / `.daily` / `.weekly` / `.monthly` map onto `UNCalendarNotificationTrigger` with matching date components (`year+month+day+hour+minute` / `hour+minute` / `weekday+hour+minute` / `day+hour+minute` respectively) — `repeats: false` only for `.none`.
+- `.monthly` does not compensate for short months: iOS simply skips firing in a month lacking that day-of-month (e.g. day 31 in February). Accepted trade-off for a bill reminder.
+- `.custom` (every N days) uses `UNTimeIntervalNotificationTrigger(timeInterval: days * 86400, repeats: true)` — this fires `interval` seconds after the trigger is *scheduled*, not at the user-picked date; there is no iOS API for "start on this date, then repeat every N days." The chosen date only seeds the first `schedule()` call.
+- `rescheduleAll()` removes every pending request and reschedules from scratch on any mutation to `reminders` — simple, but means every reminder's repeating interval effectively restarts whenever *any* reminder is added/edited/deleted, not just the one that changed.
+
+### 6.4 Notification tap → detail → "Ejecutar"
+
+`UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:)` sets `deepLinkReminder`, and `MainView`'s `.sheet(item: $reminderManager.deepLinkReminder)` opens `ReminderDetailView` on top of whatever screen was showing, regardless of `activeScreen`. Two custom notification actions — `REMINDER_MARK_DONE`, `REMINDER_SNOOZE_1_DAY` — let the user resolve a reminder straight from the notification without opening the app; the default tap action opens the detail sheet instead.
+
+`ReminderDetailView`'s "Ejecutar" button reuses the same "copy the linked value, then dial after a 0.35s delay" sequence as `OperationRunner.completeSelection` (§5.4), but does not go through `OperationRunner` itself — the linked item (bill/Nauta/card) and the USSD code are already both known at reminder-creation time, so there is no picker step to defer through.
+
+### 6.5 Known limitations
+
+- No schema versioning on `Reminder`, same as every other `Codable` model in this app (see §8).
+- Local-only: a reminder configured on one device does not sync via iCloud — the optional sync layer (§8) only covers Nauta/bank/bills/keys, not reminders. A deliberate scope cut, not an oversight.
+
+---
+
+## 7. Authentication & App Lock
 
 `AuthManager` (singleton `ObservableObject`) implements a lightweight "lock screen" gate, entirely local, using `LocalAuthentication` (`LAContext`, policy `.deviceOwnerAuthentication` — Face ID/Touch ID **or passcode fallback**, not biometric-only):
 
@@ -229,7 +263,7 @@ This means a user who never enables biometric lock cannot use the Keys manager o
 
 ---
 
-## 7. Local Persistence
+## 8. Local Persistence
 
 Everything user-generated is `Codable` and stored as JSON blobs in `UserDefaults.standard`, keyed by feature:
 
@@ -240,9 +274,10 @@ Everything user-generated is `Codable` and stored as JSON blobs in `UserDefaults
 | Bank/card accounts | `bankAccounts` | `UserDataManager` |
 | Service bills | `bills` | `UserDataManager` |
 | PINs/passwords (incl. the three special per-bank keys, §5.3) | `userKeys` | `UserDataManager` |
+| Reminders (§6) | `reminders` | `ReminderManager` |
 | ~20 UI/behavior flags | various (`darkModePreference`, `authEnabled`, `useCustomFavoriteColor`, `showNetworkStatus`, etc.) | `@AppStorage` directly in views |
 
-Both managers are `ObservableObject`s whose `@Published` arrays trigger `save()` on every mutation via `didSet` — there is no explicit "Save" action anywhere in the CRUD forms; every add/edit/delete is persisted immediately and synchronously observable by any other view holding the same singleton.
+All three managers are `ObservableObject`s whose `@Published` arrays trigger `save()` on every mutation via `didSet` (`ReminderManager` additionally reschedules every notification on the same `didSet`, §6.3) — there is no explicit "Save" action anywhere in the CRUD forms; every add/edit/delete is persisted immediately and synchronously observable by any other view holding the same singleton.
 
 **This is a flat, non-relational, no-migration persistence model.** There is no schema version field on `UserBackup` or on any stored array — a future field rename/type change would need manual backward-compatible `Codable` handling (e.g. custom `init(from:)`), since `JSONDecoder` will currently just fail silently (`try?`) and leave the in-memory array empty/unchanged.
 
@@ -261,7 +296,7 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 
 ---
 
-## 8. Theming
+## 9. Theming
 
 - **Color scheme**: `darkModePreference` (`@AppStorage`, 0/1/2) maps to `.preferredColorScheme(nil/.light/.dark)` — note the inverted-looking ternary in `BancaRemotaApp` (`darkModePreference == 1 ? .light : (== 2 ? .dark : nil)`) is intentional given the picker's own tag mapping (1 = "Modo Claro", 2 = "Modo Oscuro"), just worth double-checking if this file is ever refactored, since the naming reads backwards at a glance.
 - **Accent color**: `Color.appPrimary` (`Models.swift`) is a computed static property, not a fixed asset-catalog color — it reads `useCustomFavoriteColor` and `favoriteCustomColorHex` from `UserDefaults` on every access and defaults to gold (`#B38B4D`). `ConfigView` exposes a `ColorPicker` that writes back through `Color.toHex()`. `MainView`'s root view uses `.id("\(useCustomFavoriteColor)_\(favoriteCustomColorHex)")` to force a full view-identity reset (and thus a redraw with the new color) whenever the accent changes — a pragmatic workaround for `Color.appPrimary` not being a `@Published`/reactive value.
@@ -270,26 +305,27 @@ Threat model as implemented: Apple/iCloud stores only ciphertext; only devices w
 
 ---
 
-## 9. Cellular/Network Awareness
+## 10. Cellular/Network Awareness
 
 `CellularMonitor` wraps `CoreTelephony`'s `CTTelephonyNetworkInfo`, observing `CTServiceRadioAccessTechnologyDidChange` to classify the active radio access technology into a coarse `signalQuality` (0–3) and human-readable `networkType` (5G/4G-LTE/3G/2G-EDGE/no service). This does **not** measure signal bar strength (iOS does not expose that publicly) — it only reports which generation of network the modem is currently registered on, used as a proxy for "USSD is likely to work." `ConnectionBannerView` surfaces this as an optional banner under `TopNavBar` when `showNetworkStatus` is enabled.
 
 ---
 
-## 10. Recent/Notable Changes (from git history)
+## 11. Recent/Notable Changes (from git history)
 
 - Cellular signal monitor + `ConnectionBannerView` banner is a recent addition (feature commits `88ada12`, `b521f8d`).
 - USSD sync-check CI workflow (`096b00f`) formalizes `codes.json` as a downstream mirror of an external canonical source rather than an independently maintained list.
 
 ---
 
-## 11. Notable Constraints & Trade-offs (for future contributors)
+## 12. Notable Constraints & Trade-offs (for future contributors)
 
 - **`OperationRunner` is the only sanctioned USSD entry point**: calling `CallService.executeUSSD` directly from a new screen silently skips the prefill step (§5.1), so the operation dials without the data it needs. Route new call sites through the runner.
-- **"Cifrado militar" in `HelpView` is marketing copy, not a technical claim**: treat it as such when reasoning about the app's guarantees. What is actually implemented is AES-GCM over an unsalted, single-iteration `SHA256(password)` key (§7), covering iCloud sync only — not exported backups, which are plaintext JSON. Do not cite that phrase as evidence of a security property, and do not weaken the implementation on the assumption that the phrase already overstates it.
+- **"Cifrado militar" in `HelpView` is marketing copy, not a technical claim**: treat it as such when reasoning about the app's guarantees. What is actually implemented is AES-GCM over an unsalted, single-iteration `SHA256(password)` key (§8), covering iCloud sync only — not exported backups, which are plaintext JSON. Do not cite that phrase as evidence of a security property, and do not weaken the implementation on the assumption that the phrase already overstates it.
 - **No dependency injection / testability seams**: every service is a `static let shared` singleton accessed directly from views. Unit-testing a view in isolation currently means dealing with real `UserDefaults`/`Keychain`/`CryptoKit` state, not mocks.
 - **Silent failure on decode errors**: nearly every `JSONDecoder`/`JSONEncoder` call site uses `try?`, so a corrupted `UserDefaults` blob or a malformed imported backup fails silently (empty result) rather than surfacing an error to the user, except where `importBackup` explicitly returns `false`.
 - **No data migrations**: adding/renaming/retyping a field on any `Codable` model (`BankAccount`, `UserKey`, etc.) will silently drop previously stored data for existing users unless a custom decoder is written before shipping the change.
 - **`codes.json` is compiled-in**: adding a new bank or operation requires a new app build and App Store review — there is no remote-config or in-app update path for USSD codes.
 - **State restoration bypasses normal iOS state restoration**: screen position persists via `@AppStorage`, not `NSUserActivity`/scene restoration — fine for a single-window app, but means "activeScreen" can point at a bank the user no longer has selected in edge cases (e.g., if bank list composition ever became dynamic).
+- **`.custom` reminders drift, `.monthly` ones skip short months** (§6.3): both are inherent `UNNotificationTrigger` limitations, not bugs to "fix" by tweaking `ReminderManager` — there is no local-notification API that starts on an arbitrary date and then repeats every N days.
 
