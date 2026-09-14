@@ -578,6 +578,7 @@ struct HelpView: View {
                                 Label("Acceso protegido por Face ID / Touch ID", systemImage: "faceid")
                                 Label("Lo copiado caduca a los 2 minutos y no sale del dispositivo", systemImage: "doc.on.clipboard")
                                 Label("Tus contactos se leen solo al recargar un móvil", systemImage: "person.crop.circle")
+                                Label("Recordatorios: notificaciones locales, sin servidor ni sincronización", systemImage: "bell.badge")
                             }
                             .font(.subheadline)
                             .foregroundColor(.secondary)
