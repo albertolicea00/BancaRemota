@@ -105,4 +105,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Please follow the [Code of Conduct](CODE
 
 ---
 
-*Developed by [Alberto Licea](https://www.linkedin.com/in/albertolicea00) · Inspired by the original app by [Henry Cruz](https://www.linkedin.com/in/henrycruzmederos)*
+*Developed by @albertolicea00 · Inspired by the original app by [Henry Cruz](https://www.linkedin.com/in/henrycruzmederos)*
