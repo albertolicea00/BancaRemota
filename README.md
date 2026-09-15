@@ -2,6 +2,8 @@
 
 **Native iPhone app for Cuban banking via USSD codes. No internet required.**
 
+[Mira la versión en español](README.es.md)
+
 ![Platform](https://img.shields.io/badge/Platform-iOS%2016%2B-blue?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange?logo=swift&logoColor=white)
 ![Xcode](https://img.shields.io/badge/Xcode-15%2B-blue?logo=xcode&logoColor=white)
