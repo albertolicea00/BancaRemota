@@ -86,7 +86,7 @@ For a deeper technical breakdown (data flow, persistence, encryption, navigation
 
 ## 🚧 Known Limitations
 
-- **No Siri / Voice Shortcuts integration.** Previously implemented via `AppIntents`, then removed on purpose. Every intent still had to foreground the app and go through the exact same `tel://` dial-confirmation prompt as tapping an operation in the UI — so a voice command saved no real steps over unlocking the phone and tapping through, while adding a whole extra surface (intents, `AppShortcutsProvider`, a Siri-settings help block) to maintain.
+- **No Siri / Voice Shortcuts integration for USSD operations.** Previously considered and removed on purpose. Siri voice commands for USSD banking are not practical because USSD operations almost always require authentication (entering a PIN/key), which cannot be comfortably or seamlessly executed via voice commands. Additionally, every intent still hands execution over to the system Phone app with a manual `tel://` dial confirmation prompt, offering no real convenience over using the app directly.
 
 - **iOS security sandbox and USSD limitations (vs. Android / Transfermóvil).** Unlike Android apps (such as Transfermóvil), iOS sandbox security strictness prevents third-party apps from intercepting, reading, or parsing USSD response popups, chaining multi-step USSD sessions automatically, or executing USSD codes silently in the background. Opening a USSD link (`tel://`) hands execution over to the system Phone app, requiring manual user interaction for any follow-up menus or responses.
 
