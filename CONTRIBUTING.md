@@ -30,6 +30,9 @@ If a bank changes its codes or adds new operations:
 3. Edit `BancaRemota/codes.json` following the existing schema.
 4. Open a Pull Request **targeting `main`**.
 
+> [!IMPORTANT]
+> `codes.json` is also consumed by the web version of the project. Modifying its schema or structure without coordination can break the web interface.
+
 ### Code Contributions
 
 1. Fork the repository.
