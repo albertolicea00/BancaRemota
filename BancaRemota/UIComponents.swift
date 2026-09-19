@@ -198,6 +198,52 @@ struct OperationCard: View {
     }
 }
 
+// MARK: - Tool List Row (full-width row with description, used in Herramientas)
+struct ToolListRow: View {
+    let iconName: String
+    let title: String
+    let description: String
+    var themeColor: Color = .appPrimary
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(themeColor)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: iconName)
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text(description)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.gray.opacity(0.5))
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(12)
+            .shadow(color: Color.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
 // MARK: - Bank Selection Card
 struct BankSelectionCard: View {
     let bank: Bank

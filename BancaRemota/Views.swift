@@ -264,17 +264,17 @@ struct ToolsTabView: View {
                 VStack(spacing: 0) {
                     TopNavBar(themeColor: .appPrimary, onMenuTap: {}, showMenuBtn: false, title: "Herramientas")
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 25) {
-                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "doc.text.fill", title: "Cuentas de Servicios", isSelected: false) { selection = .servicios }
-                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "wifi", title: "Cuentas de Nauta", isSelected: false) { selection = .nauta }
-                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns.fill", title: "Cuentas de Banco", isSelected: false) { selection = .cuentasBanco }
-                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: false) { selection = .recordatorios }
-                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: false) { selection = .misClaves }
+                        VStack(spacing: 12) {
+                            ToolListRow(iconName: "doc.text.fill", title: "Cuentas de Servicios", description: "Guarda y paga tus facturas de luz, agua, gas y teléfono.") { selection = .servicios }
+                            ToolListRow(iconName: "wifi", title: "Cuentas de Nauta", description: "Recarga tus cuentas Nauta guardadas.") { selection = .nauta }
+                            ToolListRow(iconName: "building.columns.fill", title: "Cuentas de Banco", description: "Guarda tarjetas y números para transferencias.") { selection = .cuentasBanco }
+                            ToolListRow(iconName: "bell.badge.fill", title: "Recordatorios", description: "Notificaciones para no olvidar pagos y recargas.") { selection = .recordatorios }
+                            ToolListRow(iconName: "key.fill", title: "Mis Claves", description: "Guarda tus claves de acceso a cada banco.") { selection = .misClaves }
                             if includeTasaCambioRow {
-                                MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: false) { selection = .tasaCambio }
+                                ToolListRow(iconName: "arrow.left.arrow.right", title: "Tasa de Cambio", description: "Consulta el cambio de moneda.") { selection = .tasaCambio }
                             }
                             if includeBancosRow {
-                                MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns", title: "Bancos", isSelected: false) { selection = .bancos }
+                                ToolListRow(iconName: "building.columns", title: "Bancos", description: "Accede a las operaciones de tus bancos.") { selection = .bancos }
                             }
                         }
                         .padding(.horizontal)
