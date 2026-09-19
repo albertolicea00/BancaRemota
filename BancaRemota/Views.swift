@@ -901,9 +901,12 @@ struct ConfigView: View {
             TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
 
             Form {
-                Section {
-                    Button(action: { showingHelpSheet = true }) {
-                        Label("Ayuda (Manual)", systemImage: "questionmark.circle")
+                if menuStyle == 1 {
+                    Section {
+                        Button(action: { showingHelpSheet = true }) {
+                            Label("Ayuda (Manual)", systemImage: "questionmark.circle")
+                        }
+                        .foregroundColor(theme.accentColor)
                     }
                 }
 
@@ -1010,6 +1013,7 @@ struct ConfigView: View {
                         Toggle(isOn: $userData.iCloudSyncEnabled) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Label("Sincronización con iCloud", systemImage: "cloud.fill")
+                                    .foregroundColor(theme.accentColor)
                                 Text("Sincroniza tus cuentas y claves entre dispositivos de forma automática.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -1087,6 +1091,7 @@ struct ConfigView: View {
                     }) {
                         Label("Exportar BBDD de Códigos USSD", systemImage: "square.and.arrow.up")
                     }
+                    .foregroundColor(theme.accentColor)
                 }
 
                 Section(footer: Text("Versión \(AppVersion) (\(AppBuild))")
