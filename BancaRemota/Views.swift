@@ -16,66 +16,88 @@ struct MainView: View {
     @AppStorage("selectedBankID") private var selectedBankID: String = ""
     @State private var isMenuOpen = false
     @AppStorage("activeScreen") private var activeScreen: ActiveScreen = .home
+    @AppStorage("menuStyle") private var menuStyle: Int = 0 // 0 = Clásico, 1 = Moderno
     @ObservedObject private var operationRunner = OperationRunner.shared
     @ObservedObject private var reminderManager = ReminderManager.shared
-    
+
     private var selectedBank: Bank? {
         config?.banks.first { $0.id == selectedBankID }
     }
-    
+
     var body: some View {
+        Group {
+            if let config = config {
+                if menuStyle == 1 {
+                    ModernTabView(banks: config.banks)
+                } else {
+                    classicMenu(config: config)
+                }
+            } else {
+                ProgressView("Loading Configuration...")
+                    .onAppear {
+                        // Initial configuration load
+                        if let loadedConfig = DataService.shared.loadConfiguration() {
+                            self.config = loadedConfig
+
+                            // Setup default favorites if it's the first run
+                            if !UserDefaults.standard.bool(forKey: "didSetupDefaultFavorites") {
+                                FavoritesManager.shared.loadDefaults(from: loadedConfig.banks)
+                                UserDefaults.standard.set(true, forKey: "didSetupDefaultFavorites")
+                            }
+                        }
+                    }
+            }
+        }
+        // Prefill picker for operations that need a saved value. Swiping it away cancels the operation.
+        .sheet(item: $operationRunner.pendingSelection) { request in
+            PrefillSelectionView(request: request) { option in
+                operationRunner.completeSelection(option)
+            }
+        }
+        // Notification tap lands here regardless of which screen was showing.
+        .sheet(item: $reminderManager.deepLinkReminder) { reminder in
+            ReminderDetailView(reminder: reminder)
+        }
+    }
+
+    @ViewBuilder
+    private func classicMenu(config: BankConfig) -> some View {
         ZStack(alignment: .leading) {
             // Main Content Area
             VStack(spacing: 0) {
-                if let config = config {
-                    switch activeScreen {
-                    case .tutorial:
-                        TutorialView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .config:
-                        ConfigView(banks: config.banks, onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .bank:
-                        if let bank = selectedBank {
-                            OperationsListView(bank: bank, allBanks: config.banks, onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                        }
-                    case .home:
-                        BankSelectionView(banks: config.banks, onSelectBank: { bank in
-                            selectedBankID = bank.id
-                            activeScreen = .bank
-                        }, onSelectScreen: { screen in
-                            selectedBankID = ""
-                            activeScreen = screen
-                        }, onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .cuentasNauta:
-                        NautaListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .cuentasBanco:
-                        BankAccountsListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .misClaves:
-                        KeysListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .tasaCambio:
-                        UnderConstructionView(title: "Tasa de Cambio", onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .cuentasServicios:
-                        BillsListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
-                    case .recordatorios:
-                        RemindersListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                switch activeScreen {
+                case .tutorial:
+                    TutorialView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .config:
+                    ConfigView(banks: config.banks, onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .bank:
+                    if let bank = selectedBank {
+                        OperationsListView(bank: bank, allBanks: config.banks, onMenuTap: { withAnimation { isMenuOpen.toggle() } })
                     }
-                } else {
-                    ProgressView("Loading Configuration...")
-                        .onAppear {
-                            // Initial configuration load
-                            if let loadedConfig = DataService.shared.loadConfiguration() {
-                                self.config = loadedConfig
-                                
-                                // Setup default favorites if it's the first run
-                                if !UserDefaults.standard.bool(forKey: "didSetupDefaultFavorites") {
-                                    FavoritesManager.shared.loadDefaults(from: loadedConfig.banks)
-                                    UserDefaults.standard.set(true, forKey: "didSetupDefaultFavorites")
-                                }
-                            }
-                        }
+                case .home:
+                    BankSelectionView(banks: config.banks, onSelectBank: { bank in
+                        selectedBankID = bank.id
+                        activeScreen = .bank
+                    }, onSelectScreen: { screen in
+                        selectedBankID = ""
+                        activeScreen = screen
+                    }, onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .cuentasNauta:
+                    NautaListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .cuentasBanco:
+                    BankAccountsListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .misClaves:
+                    KeysListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .tasaCambio:
+                    UnderConstructionView(title: "Tasa de Cambio", onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .cuentasServicios:
+                    BillsListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
+                case .recordatorios:
+                    RemindersListView(onMenuTap: { withAnimation { isMenuOpen.toggle() } })
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
+
             // Side Drawer Overlay
             if isMenuOpen {
                 Color.black.opacity(0.3)
@@ -85,9 +107,9 @@ struct MainView: View {
                             isMenuOpen = false
                         }
                     }
-                
+
                 SideMenuView(
-                    banks: config?.banks ?? [],
+                    banks: config.banks,
                     selectedBank: selectedBank,
                     activeScreen: activeScreen,
                     onSelectHome: {
@@ -118,15 +140,147 @@ struct MainView: View {
                 .transition(.move(edge: .leading))
             }
         }
-        // Prefill picker for operations that need a saved value. Swiping it away cancels the operation.
-        .sheet(item: $operationRunner.pendingSelection) { request in
-            PrefillSelectionView(request: request) { option in
-                operationRunner.completeSelection(option)
+    }
+}
+
+// MARK: - Modern Tab Menu
+enum ModernTab: Hashable {
+    case favoritos, bancos, tools, tasaCambio, ayuda, config
+}
+
+struct ModernTabView: View {
+    let banks: [Bank]
+    @AppStorage("modernHideBanksTab") private var hideBanks = false
+    @AppStorage("modernHideHelpTab") private var hideHelp = false
+    @AppStorage("modernShowExchangeRateTab") private var showExchangeTab = false
+    @State private var selectedTab: ModernTab = .favoritos
+    @State private var favSelectedBank: Bank?
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            Group {
+                if let bank = favSelectedBank {
+                    OperationsListView(bank: bank, allBanks: banks, onMenuTap: { favSelectedBank = nil }, showMenuBtn: true, useBackIcon: true)
+                } else {
+                    BankSelectionView(banks: banks, onSelectBank: { bank in
+                        favSelectedBank = bank
+                    }, onSelectScreen: { _ in }, onMenuTap: {}, showMenuBtn: false, showBanksSection: false)
+                }
             }
+            .tabItem { Label("Favoritos", systemImage: "star.fill") }
+            .tag(ModernTab.favoritos)
+
+            if !hideBanks {
+                BancosTabView(banks: banks)
+                    .tabItem { Label("Bancos", systemImage: "building.columns") }
+                    .tag(ModernTab.bancos)
+            }
+
+            ToolsTabView(banks: banks, includeBancosRow: hideBanks, includeTasaCambioRow: !showExchangeTab)
+                .tabItem { Label("Herramientas", systemImage: "chart.bar") }
+                .tag(ModernTab.tools)
+
+            if showExchangeTab {
+                UnderConstructionView(title: "Tasa de Cambio", onMenuTap: {}, showMenuBtn: false)
+                    .tabItem { Label("Tasa de Cambio", systemImage: "arrow.left.arrow.right") }
+                    .tag(ModernTab.tasaCambio)
+            }
+
+            if !hideHelp {
+                TutorialView(onMenuTap: {}, showMenuBtn: false)
+                    .tabItem { Label("Ayuda", systemImage: "questionmark.circle") }
+                    .tag(ModernTab.ayuda)
+            }
+
+            ConfigView(banks: banks, onMenuTap: {}, showMenuBtn: false, showHelpRowFirst: hideHelp)
+                .tabItem { Label("Configuración", systemImage: "gearshape") }
+                .tag(ModernTab.config)
         }
-        // Notification tap lands here regardless of which screen was showing.
-        .sheet(item: $reminderManager.deepLinkReminder) { reminder in
-            ReminderDetailView(reminder: reminder)
+    }
+}
+
+// MARK: - Bancos Tab (segmented + swipe entre BPA/BANDEC/BM)
+struct BancosTabView: View {
+    let banks: [Bank]
+    @State private var selectedIndex = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if banks.count > 1 {
+                Picker("Banco", selection: $selectedIndex) {
+                    ForEach(Array(banks.enumerated()), id: \.offset) { idx, bank in
+                        Text(bank.shortName.uppercased()).tag(idx)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding()
+            }
+            TabView(selection: $selectedIndex) {
+                ForEach(Array(banks.enumerated()), id: \.offset) { idx, bank in
+                    OperationsListView(bank: bank, allBanks: banks, onMenuTap: {}, showMenuBtn: false)
+                        .tag(idx)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+        }
+    }
+}
+
+// MARK: - Herramientas Tab (listado de servicios/facturas)
+enum ToolsScreen {
+    case servicios, nauta, cuentasBanco, recordatorios, misClaves, tasaCambio, bancos
+}
+
+struct ToolsTabView: View {
+    let banks: [Bank]
+    let includeBancosRow: Bool
+    let includeTasaCambioRow: Bool
+    @State private var selection: ToolsScreen?
+
+    var body: some View {
+        Group {
+            if let sel = selection {
+                switch sel {
+                case .servicios:
+                    BillsListView(onMenuTap: { selection = nil }, showMenuBtn: true, useBackIcon: true)
+                case .nauta:
+                    NautaListView(onMenuTap: { selection = nil }, showMenuBtn: true, useBackIcon: true)
+                case .cuentasBanco:
+                    BankAccountsListView(onMenuTap: { selection = nil }, showMenuBtn: true, useBackIcon: true)
+                case .recordatorios:
+                    RemindersListView(onMenuTap: { selection = nil }, showMenuBtn: true, useBackIcon: true)
+                case .misClaves:
+                    KeysListView(onMenuTap: { selection = nil }, showMenuBtn: true, useBackIcon: true)
+                case .tasaCambio:
+                    UnderConstructionView(title: "Tasa de Cambio", onMenuTap: { selection = nil }, showMenuBtn: true, useBackIcon: true)
+                case .bancos:
+                    VStack(spacing: 0) {
+                        TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: { selection = nil }, title: "Bancos", useBackIcon: true)
+                        BancosTabView(banks: banks)
+                    }
+                }
+            } else {
+                VStack(spacing: 0) {
+                    TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: {}, showMenuBtn: false, title: "Herramientas")
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 25) {
+                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "doc.text.fill", title: "Cuentas de Servicios", isSelected: false) { selection = .servicios }
+                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "wifi", title: "Cuentas de Nauta", isSelected: false) { selection = .nauta }
+                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns.fill", title: "Cuentas de Banco", isSelected: false) { selection = .cuentasBanco }
+                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: false) { selection = .recordatorios }
+                            MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: false) { selection = .misClaves }
+                            if includeTasaCambioRow {
+                                MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: false) { selection = .tasaCambio }
+                            }
+                            if includeBancosRow {
+                                MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns", title: "Bancos", isSelected: false) { selection = .bancos }
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 20)
+                    }
+                }
+            }
         }
     }
 }
@@ -162,7 +316,9 @@ struct BankSelectionView: View {
     let onSelectBank: (Bank) -> Void
     let onSelectScreen: (ActiveScreen) -> Void
     let onMenuTap: () -> Void
-    
+    var showMenuBtn: Bool = true
+    var showBanksSection: Bool = true
+
     @AppStorage("showBanksInFavorites") private var showBanksInFavorites = true
     @AppStorage("useBanksAsLogin") private var useBanksAsLogin = true
     @AppStorage("showShortcutsInFavorites") private var showShortcutsInFavorites = false
@@ -192,7 +348,7 @@ struct BankSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, isHome: true)
+            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, isHome: true)
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
@@ -226,7 +382,7 @@ struct BankSelectionView: View {
                     //     .padding(.top, showBanksInFavorites ? 0 : 20)
                     // }
 
-                    // if showBanksInFavorites { 
+                    if showBanksSection {
                         VStack(alignment: .leading, spacing: 15) {
                             HStack(alignment: .bottom) {
                                 Text("Mis Bancos")
@@ -277,7 +433,7 @@ struct BankSelectionView: View {
                             }
                         }
                         .padding(.top, 20)
-                    // }
+                    }
                     
                     VStack(alignment: .leading, spacing: 15) {
                         Text("Operaciones Favoritas")
@@ -357,10 +513,12 @@ struct OperationsListView: View {
     let bank: Bank
     let allBanks: [Bank]
     let onMenuTap: () -> Void
-    
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
+
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: bank.themeColor, onMenuTap: onMenuTap, bank: bank)
+            TopNavBar(themeColor: bank.themeColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, bank: bank, useBackIcon: useBackIcon)
             
             ScrollView {
                 VStack(spacing: 0) {
@@ -411,7 +569,8 @@ struct SideMenuView: View {
     var body: some View {
         ZStack(alignment: .leading) {
             Color(UIColor.systemBackground).ignoresSafeArea()
-            
+
+            ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 30) {
                 // App Logo Large
                 Button(action: onSelectHome) {
@@ -423,7 +582,7 @@ struct SideMenuView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 30)
-                                
+
                 // Link Items
                 VStack(alignment: .leading, spacing: 25) {
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "star.fill", title: "Favoritos", isSelected: activeScreen == .home) {
@@ -459,8 +618,8 @@ struct SideMenuView: View {
 
                 }
                 .padding(.leading, 30)
-                
-                Spacer()
+                .padding(.bottom, 30)
+            }
             }
         }
         .gesture(
@@ -537,10 +696,12 @@ struct MenuRow: View {
 // MARK: - Tutorial View (Ayuda)
 struct TutorialView: View {
     let onMenuTap: () -> Void
-    
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
+
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, title: "Ayuda")
+            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Ayuda", useBackIcon: useBackIcon)
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
@@ -678,8 +839,17 @@ struct TutorialView: View {
 struct ConfigView: View {
     let banks: [Bank]
     let onMenuTap: () -> Void
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
+    var showHelpRowFirst: Bool = false
     @ObservedObject var userData = UserDataManager.shared
-    
+    @State private var showingHelpSheet = false
+
+    @AppStorage("menuStyle") private var menuStyle: Int = 0 // 0 = Clásico, 1 = Moderno
+    @AppStorage("modernHideBanksTab") private var modernHideBanksTab = false
+    @AppStorage("modernHideHelpTab") private var modernHideHelpTab = false
+    @AppStorage("modernShowExchangeRateTab") private var modernShowExchangeRateTab = false
+
     @AppStorage("darkModePreference") private var darkMode: Int = 0 // 0 = Default, 1 = Light, 2 = Dark
     @AppStorage("liquidGlassEnabled") private var liquidGlass = false
     @AppStorage("authEnabled") private var authEnabled: Bool = false
@@ -730,9 +900,29 @@ struct ConfigView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, title: "Configuración")
-            
+            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
+
             Form {
+                if showHelpRowFirst {
+                    Section {
+                        Button(action: { showingHelpSheet = true }) {
+                            Label("Ayuda (Manual)", systemImage: "questionmark.circle")
+                        }
+                    }
+                }
+
+                Section(header: Text("Tipo de Menú"), footer: Text("El menú Moderno reemplaza el panel lateral por una barra de pestañas.")) {
+                    Picker("Estilo de menú", selection: $menuStyle) {
+                        Text("Clásico").tag(0)
+                        Text("Moderno").tag(1)
+                    }
+                    if menuStyle == 1 {
+                        Toggle("Ocultar sección de Bancos", isOn: $modernHideBanksTab)
+                        Toggle("Ocultar sección de Ayuda", isOn: $modernHideHelpTab)
+                        Toggle("Mostrar Tasa de Cambio como menú aparte", isOn: $modernShowExchangeRateTab)
+                    }
+                }
+
                 Section(header: Text("Apariencia")) {
                     Picker("Tema Visual", selection: $darkMode) {
                         Text("Por defecto").tag(0)
@@ -1080,6 +1270,9 @@ struct ConfigView: View {
                 pendingAuthEnabled = authEnabled
                 selectedFavoriteColor = Color(hex: favoriteCustomColorHex)
             }
+            .sheet(isPresented: $showingHelpSheet) {
+                TutorialView(onMenuTap: { showingHelpSheet = false }, showMenuBtn: true, useBackIcon: true)
+            }
         }
     }
 
@@ -1104,10 +1297,12 @@ struct ConfigView: View {
 struct UnderConstructionView: View {
     let title: String
     let onMenuTap: () -> Void
-    
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
+
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, title: title)
+            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: title, useBackIcon: useBackIcon)
             
             VStack(spacing: 20) {
                 Spacer()
@@ -1311,15 +1506,17 @@ struct AddFavoriteOperationView: View {
 // MARK: - Nauta Accounts List
 struct NautaListView: View {
     let onMenuTap: () -> Void
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
     @State private var showingAddAccount = false
     @State private var accountToEdit: NautaAccount?
     @State private var accountToDelete: NautaAccount?
     @State private var showingDeleteAlert = false
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Cuentas Nauta")
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas Nauta", useBackIcon: useBackIcon)
             
             List {
                 if userData.nautaAccounts.isEmpty {
@@ -1392,16 +1589,18 @@ struct NautaListView: View {
 // MARK: - Bank Accounts List
 struct BankAccountsListView: View {
     let onMenuTap: () -> Void
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
     @State private var showingAddAccount = false
     @State private var accountToEdit: BankAccount?
     @State private var accountToDelete: BankAccount?
     @State private var showingDeleteAlert = false
     @State private var selectedAccountForDetail: BankAccount?
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Cuentas de Banco")
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas de Banco", useBackIcon: useBackIcon)
             
             ScrollView {
                 if userData.bankAccounts.isEmpty {
@@ -1483,15 +1682,17 @@ struct BankAccountsListView: View {
 // MARK: - Bills List
 struct BillsListView: View {
     let onMenuTap: () -> Void
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
     @State private var showingAddBill = false
     @State private var billToEdit: Bill?
     @State private var billToDelete: Bill?
     @State private var showingDeleteAlert = false
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Cuentas de Servicios")
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas de Servicios", useBackIcon: useBackIcon)
             
             List {
                 if userData.bills.isEmpty {
@@ -1564,6 +1765,8 @@ struct BillsListView: View {
 // MARK: - Keys List
 struct KeysListView: View {
     let onMenuTap: () -> Void
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
     @State private var showingAddKey = false
     @State private var keyToEdit: UserKey?
@@ -1573,7 +1776,7 @@ struct KeysListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Mis Claves")
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Mis Claves", useBackIcon: useBackIcon)
 
             if !authEnabled {
                 VStack(spacing: 20) {
@@ -2222,6 +2425,8 @@ struct DetailRow: View {
 // MARK: - Reminders List
 struct RemindersListView: View {
     let onMenuTap: () -> Void
+    var showMenuBtn: Bool = true
+    var useBackIcon: Bool = false
     @ObservedObject var reminderManager = ReminderManager.shared
     @State private var templateForNewReminder: ReminderTemplate?
     @State private var reminderToEdit: Reminder?
@@ -2230,7 +2435,7 @@ struct RemindersListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, title: "Recordatorios")
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Recordatorios", useBackIcon: useBackIcon)
 
             List {
                 // One section per template — each can hold any number of reminders (two houses'

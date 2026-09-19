@@ -8,6 +8,7 @@ struct TopNavBar: View {
     var bank: Bank? = nil
     var title: String? = nil
     var isHome: Bool = false
+    var useBackIcon: Bool = false
     
     @AppStorage("useBankNameInsteadOfIcon") private var useBankNameInsteadOfIcon = false
     @AppStorage("showNetworkStatus") private var showNetworkStatus = false
@@ -19,7 +20,7 @@ struct TopNavBar: View {
             HStack {
             if showMenuBtn {
                 Button(action: onMenuTap) {
-                    Image(systemName: "line.horizontal.3")
+                    Image(systemName: useBackIcon ? "chevron.left" : "line.horizontal.3")
                         .font(.title2)
                         .foregroundColor(contentColor)
                 }
@@ -47,9 +48,11 @@ struct TopNavBar: View {
                             .frame(width: 40, height: 40)
                     }
                 } else if isHome {
-                    Image("AppLogoL")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
+                    Text(title ?? "Favoritos")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(contentColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 } else if let title = title {
                     Text(title)
                         .font(.system(size: 18, weight: .bold))
