@@ -151,7 +151,7 @@ enum ModernTab: Hashable {
 struct ModernTabView: View {
     let banks: [Bank]
     @AppStorage("modernHideBanksTab") private var hideBanks = false
-    @AppStorage("modernHideHelpTab") private var hideHelp = false
+    @AppStorage("modernHideHelpTab") private var hideHelp = true
     @AppStorage("modernShowExchangeRateTab") private var showExchangeTab = false
     @State private var selectedTab: ModernTab = .favoritos
     @State private var favSelectedBank: Bank?
@@ -594,16 +594,19 @@ struct SideMenuView: View {
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "wifi", title: "Cuentas de Nauta", isSelected: activeScreen == .cuentasNauta) { onSelectScreen(.cuentasNauta) }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns.fill", title: "Cuentas de Banco", isSelected: activeScreen == .cuentasBanco) { onSelectScreen(.cuentasBanco) }
 
-
                     Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
+                    
+                    Divider().padding(.trailing, 40)
+                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
+                    
+                    Divider().padding(.trailing, 40)
+                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
 
                     Divider().padding(.trailing, 40)
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda (Manual)", isSelected: activeScreen == .tutorial) {
                         onSelectTutorial()
                     }
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "gearshape", title: "Configuración", isSelected: activeScreen == .config) {
                         onSelectConfig()
                     }
@@ -839,7 +842,7 @@ struct ConfigView: View {
 
     @AppStorage("menuStyle") private var menuStyle: Int = 0 // 0 = Clásico, 1 = Moderno
     @AppStorage("modernHideBanksTab") private var modernHideBanksTab = false
-    @AppStorage("modernHideHelpTab") private var modernHideHelpTab = false
+    @AppStorage("modernHideHelpTab") private var modernHideHelpTab = true
     @AppStorage("modernShowExchangeRateTab") private var modernShowExchangeRateTab = false
 
     @AppStorage("darkModePreference") private var darkMode: Int = 0 // 0 = Default, 1 = Light, 2 = Dark
@@ -937,7 +940,9 @@ struct ConfigView: View {
                 
                 Section(header: Text("General y Preferencias")) {
                     Toggle("Aviso de estado de conexión", isOn: $showNetworkStatus)
-                    Toggle("Mostrar nombre de banco en vez de icono", isOn: $useBankNameInsteadOfIcon)
+                    if menuStyle == 0 {
+                        Toggle("Mostrar nombre de banco en vez de icono", isOn: $useBankNameInsteadOfIcon)
+                    }
                     // Toggle("Mostrar atajos de menú en favoritos", isOn: $showShortcutsInFavorites)
                     // Toggle("Mostrar bancos en favoritos", isOn: $showBanksInFavorites)
                     // Toggle("Usar bancos en favoritos como inicio de sesión", isOn: $useBanksAsLogin)
