@@ -164,7 +164,7 @@ struct ModernTabView: View {
                 } else {
                     BankSelectionView(banks: banks, onSelectBank: { bank in
                         favSelectedBank = bank
-                    }, onSelectScreen: { _ in }, onMenuTap: {}, showMenuBtn: false, showBanksSection: false)
+                    }, onSelectScreen: { _ in }, onMenuTap: {}, showMenuBtn: false)
                 }
             }
             .tabItem { Label("Favoritos", systemImage: "star.fill") }
@@ -348,7 +348,7 @@ struct BankSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, isHome: true)
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Banca Remota", isHome: true)
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
@@ -572,23 +572,13 @@ struct SideMenuView: View {
 
             ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 30) {
-                // App Logo Large
-                Button(action: onSelectHome) {
-                    Image("AppLogoL")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 20)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .padding(.top, 30)
-
                 // Link Items
                 VStack(alignment: .leading, spacing: 25) {
                     MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "star.fill", title: "Favoritos", isSelected: activeScreen == .home) {
                         onSelectHome()
                     }
-                    
+                    .padding(.top, 30)
+
                     Divider().padding(.trailing, 40)
                     
                     ForEach(banks) { bank in
@@ -701,7 +691,7 @@ struct TutorialView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Ayuda", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Ayuda", useBackIcon: useBackIcon)
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
@@ -900,7 +890,7 @@ struct ConfigView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
 
             Form {
                 if showHelpRowFirst {
