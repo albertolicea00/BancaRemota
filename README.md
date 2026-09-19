@@ -41,7 +41,8 @@
 - 🌗 **Customization & Settings** — Light/Dark mode, accent color picker, biometric session timeout, and home screen shortcut toggles.
 
 ### Upcoming
--  **Currency Exchange Rates & Widget** — Live/cached currency exchange rates (USD, EUR, MLC vs. CUP) via REST API with dedicated WidgetKit Home & Lock Screen widgets. See [#1](https://github.com/albertolicea00/BancaRemota/issues/1) for planned specifications.
+
+- **Currency Exchange Rates & Widget** — Live/cached currency exchange rates (USD, EUR, MLC vs. CUP) via REST API with dedicated WidgetKit Home & Lock Screen widgets. See [#1](https://github.com/albertolicea00/BancaRemota/issues/1) for planned specifications.
 
 ---
 
@@ -60,7 +61,7 @@
 **Requirements:** iOS 16.0+ · Xcode 15.0+
 
 ```bash
-git clone https://github.com/albertolicea00/BancaRemota_app.git
+git clone https://github.com/albertolicea00/BancaRemota.git
 open BancaRemota.xcodeproj
 ```
 

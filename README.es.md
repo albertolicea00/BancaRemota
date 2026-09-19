@@ -41,7 +41,8 @@
 - 🌗 **Personalización y Ajustes** — Modo Claro/Oscuro, selector de color de acento, tiempo de espera de sesión biométrica y conmutadores de accesos directos en pantalla de inicio.
 
 ### Próximamente
--  **Tipos de Cambio de Moneda y Widget** — Tasas de cambio de moneda en vivo/cacheadas (USD, EUR, MLC vs. CUP) vía API REST con widgets dedicados para Pantalla de Inicio y Bloqueo en WidgetKit. Consulta [#1](https://github.com/albertolicea00/BancaRemota/issues/1) para las especificaciones planificadas.
+
+- **Tipos de Cambio de Moneda y Widget** — Tasas de cambio de moneda en vivo/cacheadas (USD, EUR, MLC vs. CUP) vía API REST con widgets dedicados para Pantalla de Inicio y Bloqueo en WidgetKit. Consulta [#1](https://github.com/albertolicea00/BancaRemota/issues/1) para las especificaciones planificadas.
 
 ---
 
@@ -60,7 +61,7 @@
 **Requisitos:** iOS 16.0+ · Xcode 15.0+
 
 ```bash
-git clone https://github.com/albertolicea00/BancaRemota_app.git
+git clone https://github.com/albertolicea00/BancaRemota.git
 open BancaRemota.xcodeproj
 ```
 
