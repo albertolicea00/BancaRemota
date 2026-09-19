@@ -145,13 +145,12 @@ struct MainView: View {
 
 // MARK: - Modern Tab Menu
 enum ModernTab: Hashable {
-    case favoritos, bancos, tools, tasaCambio, ayuda, config
+    case favoritos, bancos, tools, tasaCambio, config
 }
 
 struct ModernTabView: View {
     let banks: [Bank]
     @AppStorage("modernHideBanksTab") private var hideBanks = false
-    @AppStorage("modernHideHelpTab") private var hideHelp = true
     @AppStorage("modernShowExchangeRateTab") private var showExchangeTab = false
     @State private var selectedTab: ModernTab = .favoritos
     @State private var favSelectedBank: Bank?
@@ -186,13 +185,7 @@ struct ModernTabView: View {
                     .tag(ModernTab.tasaCambio)
             }
 
-            if !hideHelp {
-                TutorialView(onMenuTap: {}, showMenuBtn: false)
-                    .tabItem { Label("Ayuda", systemImage: "questionmark.circle") }
-                    .tag(ModernTab.ayuda)
-            }
-
-            ConfigView(banks: banks, onMenuTap: {}, showMenuBtn: false, showHelpRowFirst: hideHelp)
+            ConfigView(banks: banks, onMenuTap: {}, showMenuBtn: false)
                 .tabItem { Label("Configuración", systemImage: "gearshape") }
                 .tag(ModernTab.config)
         }
@@ -836,13 +829,11 @@ struct ConfigView: View {
     let onMenuTap: () -> Void
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
-    var showHelpRowFirst: Bool = false
     @ObservedObject var userData = UserDataManager.shared
     @State private var showingHelpSheet = false
 
     @AppStorage("menuStyle") private var menuStyle: Int = 0 // 0 = Clásico, 1 = Moderno
     @AppStorage("modernHideBanksTab") private var modernHideBanksTab = false
-    @AppStorage("modernHideHelpTab") private var modernHideHelpTab = true
     @AppStorage("modernShowExchangeRateTab") private var modernShowExchangeRateTab = false
 
     @AppStorage("darkModePreference") private var darkMode: Int = 0 // 0 = Default, 1 = Light, 2 = Dark
@@ -898,11 +889,9 @@ struct ConfigView: View {
             TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
 
             Form {
-                if showHelpRowFirst {
-                    Section {
-                        Button(action: { showingHelpSheet = true }) {
-                            Label("Ayuda (Manual)", systemImage: "questionmark.circle")
-                        }
+                Section {
+                    Button(action: { showingHelpSheet = true }) {
+                        Label("Ayuda (Manual)", systemImage: "questionmark.circle")
                     }
                 }
 
@@ -913,7 +902,6 @@ struct ConfigView: View {
                     }
                     if menuStyle == 1 {
                         Toggle("Ocultar sección de Bancos", isOn: $modernHideBanksTab)
-                        Toggle("Ocultar sección de Ayuda", isOn: $modernHideHelpTab)
                         Toggle("Mostrar Tasa de Cambio como menú aparte", isOn: $modernShowExchangeRateTab)
                     }
                 }
