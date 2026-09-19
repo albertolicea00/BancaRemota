@@ -42,6 +42,26 @@ struct BankOperation: Codable, Identifiable {
     var prefill: String?
 }
 
+// MARK: - Reactive Theme Manager
+final class ThemeManager: ObservableObject {
+    static let shared = ThemeManager()
+    @Published var accentColor: Color
+
+    private init() {
+        accentColor = ThemeManager.computeColor()
+    }
+
+    static func computeColor() -> Color {
+        let useCustom = UserDefaults.standard.bool(forKey: "useCustomFavoriteColor")
+        let hex = UserDefaults.standard.string(forKey: "favoriteCustomColorHex") ?? "B38B4D"
+        return useCustom ? Color(hex: hex) : Color(hex: "B38B4D")
+    }
+
+    func refresh() {
+        accentColor = ThemeManager.computeColor()
+    }
+}
+
 // MARK: - Color Hex Initialization Extension
 extension Color {
     static var appPrimary: Color {
@@ -49,7 +69,7 @@ extension Color {
         let hex = UserDefaults.standard.string(forKey: "favoriteCustomColorHex") ?? "B38B4D"
         return useCustom ? Color(hex: hex) : Color(hex: "B38B4D")
     }
-    
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

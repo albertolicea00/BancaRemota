@@ -229,6 +229,7 @@ struct ToolsTabView: View {
     let banks: [Bank]
     let includeBancosRow: Bool
     let includeTasaCambioRow: Bool
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var selection: ToolsScreen?
 
     var body: some View {
@@ -255,19 +256,19 @@ struct ToolsTabView: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    TopNavBar(themeColor: .appPrimary, onMenuTap: {}, showMenuBtn: false, title: "Herramientas")
+                    TopNavBar(themeColor: theme.accentColor, onMenuTap: {}, showMenuBtn: false, title: "Herramientas")
                     ScrollView {
                         VStack(spacing: 12) {
-                            ToolListRow(iconName: "doc.text.fill", title: "Cuentas de Servicios", description: "Guarda y paga tus facturas de luz, agua, gas y teléfono.") { selection = .servicios }
-                            ToolListRow(iconName: "wifi", title: "Cuentas de Nauta", description: "Recarga tus cuentas Nauta guardadas.") { selection = .nauta }
-                            ToolListRow(iconName: "building.columns.fill", title: "Cuentas de Banco", description: "Guarda tarjetas y números para transferencias.") { selection = .cuentasBanco }
-                            ToolListRow(iconName: "bell.badge.fill", title: "Recordatorios", description: "Notificaciones para no olvidar pagos y recargas.") { selection = .recordatorios }
-                            ToolListRow(iconName: "key.fill", title: "Mis Claves", description: "Guarda tus claves de acceso a cada banco.") { selection = .misClaves }
+                            ToolListRow(iconName: "doc.text.fill", title: "Cuentas de Servicios", description: "Guarda y paga tus facturas de luz, agua, gas y teléfono.", themeColor: theme.accentColor) { selection = .servicios }
+                            ToolListRow(iconName: "wifi", title: "Cuentas de Nauta", description: "Recarga tus cuentas Nauta guardadas.", themeColor: theme.accentColor) { selection = .nauta }
+                            ToolListRow(iconName: "building.columns.fill", title: "Cuentas de Banco", description: "Guarda tarjetas y números para transferencias.", themeColor: theme.accentColor) { selection = .cuentasBanco }
+                            ToolListRow(iconName: "bell.badge.fill", title: "Recordatorios", description: "Notificaciones para no olvidar pagos y recargas.", themeColor: theme.accentColor) { selection = .recordatorios }
+                            ToolListRow(iconName: "key.fill", title: "Mis Claves", description: "Guarda tus claves de acceso a cada banco.", themeColor: theme.accentColor) { selection = .misClaves }
                             if includeTasaCambioRow {
-                                ToolListRow(iconName: "arrow.left.arrow.right", title: "Tasa de Cambio", description: "Consulta el cambio de moneda.") { selection = .tasaCambio }
+                                ToolListRow(iconName: "arrow.left.arrow.right", title: "Tasa de Cambio", description: "Consulta el cambio de moneda.", themeColor: theme.accentColor) { selection = .tasaCambio }
                             }
                             if includeBancosRow {
-                                ToolListRow(iconName: "building.columns", title: "Bancos", description: "Accede a las operaciones de tus bancos.") { selection = .bancos }
+                                ToolListRow(iconName: "building.columns", title: "Bancos", description: "Accede a las operaciones de tus bancos.", themeColor: theme.accentColor) { selection = .bancos }
                             }
                         }
                         .padding(.horizontal)
@@ -319,6 +320,7 @@ struct BankSelectionView: View {
     @AppStorage("useCustomFavoriteColor") private var useCustomFavoriteColor = true
     @AppStorage("favoriteCustomColorHex") private var favoriteCustomColorHex = "B38B4D"
     @ObservedObject private var favoritesManager = FavoritesManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var isShowingAddFavorite = false
     @State private var draggedItem: FavoriteOperation?
 
@@ -342,7 +344,7 @@ struct BankSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Banca Remota", isHome: true)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Banca Remota", isHome: true)
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
@@ -438,12 +440,12 @@ struct BankSelectionView: View {
                         if !favoritesManager.favoriteOperations.isEmpty {
                             LazyVStack(spacing: 12) {
                                 ForEach(displayedFavorites) { fav in
-                                    let theme = Color.appPrimary
+                                    let cardThemeColor = theme.accentColor
                                     let textColor = Color.white
                                     let isCommon = commonUssdCodes.contains(fav.operation.ussdCode)
                                     let favBank = banks.first(where: { $0.id == fav.bankId })
                                     let bankBadge: String? = isCommon ? nil : favBank?.shortName
-                                    OperationCard(operation: fav.operation, themeColor: theme, textColor: textColor, badge: bankBadge, badgeColor: favBank?.themeColor, badgeTextColor: favBank?.textColor) {
+                                    OperationCard(operation: fav.operation, themeColor: cardThemeColor, textColor: textColor, badge: bankBadge, badgeColor: favBank?.themeColor, badgeTextColor: favBank?.textColor) {
                                         OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
                                     }
                                     .onDrag {
@@ -560,6 +562,7 @@ struct SideMenuView: View {
     let onSelectTutorial: () -> Void
     let onSelectConfig: () -> Void
     let onSelectScreen: (ActiveScreen) -> Void
+    @ObservedObject private var theme = ThemeManager.shared
     
     var body: some View {
         ZStack(alignment: .leading) {
@@ -569,7 +572,7 @@ struct SideMenuView: View {
             VStack(alignment: .leading, spacing: 30) {
                 // Link Items
                 VStack(alignment: .leading, spacing: 25) {
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "star.fill", title: "Favoritos", isSelected: activeScreen == .home) {
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "star.fill", title: "Favoritos", isSelected: activeScreen == .home) {
                         onSelectHome()
                     }
                     .padding(.top, 30)
@@ -577,30 +580,30 @@ struct SideMenuView: View {
                     Divider().padding(.trailing, 40)
                     
                     ForEach(banks) { bank in
-                        MenuRow(iconColor: .appPrimary, imageName: bank.iconImg, systemImageName: nil, title: bank.shortName.uppercased(), isSelected: activeScreen == .bank && selectedBank?.id == bank.id) {
+                        MenuRow(iconColor: theme.accentColor, imageName: bank.iconImg, systemImageName: nil, title: bank.shortName.uppercased(), isSelected: activeScreen == .bank && selectedBank?.id == bank.id) {
                             onSelectBank(bank)
                         }
                     }
                     
                     Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "doc.text.fill", title: "Cuentas de Servicios", isSelected: activeScreen == .cuentasServicios) { onSelectScreen(.cuentasServicios) }
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "wifi", title: "Cuentas de Nauta", isSelected: activeScreen == .cuentasNauta) { onSelectScreen(.cuentasNauta) }
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "building.columns.fill", title: "Cuentas de Banco", isSelected: activeScreen == .cuentasBanco) { onSelectScreen(.cuentasBanco) }
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "doc.text.fill", title: "Cuentas de Servicios", isSelected: activeScreen == .cuentasServicios) { onSelectScreen(.cuentasServicios) }
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "wifi", title: "Cuentas de Nauta", isSelected: activeScreen == .cuentasNauta) { onSelectScreen(.cuentasNauta) }
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "building.columns.fill", title: "Cuentas de Banco", isSelected: activeScreen == .cuentasBanco) { onSelectScreen(.cuentasBanco) }
 
                     Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "arrow.left.arrow.right", title: "Tasa de Cambio", isSelected: activeScreen == .tasaCambio) { onSelectScreen(.tasaCambio) }
                     
                     Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "key.fill", title: "Mis Claves", isSelected: activeScreen == .misClaves) { onSelectScreen(.misClaves) }
                     
                     Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "bell.badge.fill", title: "Recordatorios", isSelected: activeScreen == .recordatorios) { onSelectScreen(.recordatorios) }
 
                     Divider().padding(.trailing, 40)
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda (Manual)", isSelected: activeScreen == .tutorial) {
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "questionmark.circle", title: "Ayuda (Manual)", isSelected: activeScreen == .tutorial) {
                         onSelectTutorial()
                     }
-                    MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "gearshape", title: "Configuración", isSelected: activeScreen == .config) {
+                    MenuRow(iconColor: theme.accentColor, imageName: nil, systemImageName: "gearshape", title: "Configuración", isSelected: activeScreen == .config) {
                         onSelectConfig()
                     }
 
@@ -624,12 +627,13 @@ struct SideMenuView: View {
 struct HelpSection: View {
     let title: String
     let content: String
-    
+    @ObservedObject private var theme = ThemeManager.shared
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.headline)
-                .foregroundColor(.appPrimary)
+                .foregroundColor(theme.accentColor)
             
             Text(content)
                 .font(.body)
@@ -686,17 +690,18 @@ struct TutorialView: View {
     let onMenuTap: () -> Void
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Ayuda", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Ayuda", useBackIcon: useBackIcon)
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
                     Text("Cómo usar la aplicación")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.appPrimary)
+                        .foregroundColor(theme.accentColor)
                         .padding(.bottom, 10)
 
                     HelpSection(title: "Sobre la Aplicación", content: "Banca Remota es una utilidad nativa para iPhone que permite ejecutar operaciones bancarias en Cuba mediante códigos USSD sin necesidad de internet. Incluye un gestor local para tarjetas, cuentas nauta, cuentas de servicios y contraseñas.")
@@ -734,7 +739,7 @@ struct TutorialView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Contacto y Colaboración")
                             .font(.headline)
-                            .foregroundColor(.appPrimary)
+                            .foregroundColor(theme.accentColor)
 
                         Link(destination: URL(string: "https://www.linkedin.com/in/albertolicea00")!) {
                             Label("Alberto Licea (Desarrollador)", systemImage: "person.circle")
@@ -758,7 +763,7 @@ struct TutorialView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Créditos")
                             .font(.headline)
-                            .foregroundColor(.appPrimary)
+                            .foregroundColor(theme.accentColor)
 
                         Link(destination: URL(string: "https://www.linkedin.com/in/henrycruzmederos")!) {
                             Label("Henry Cruz (Creador de la app original)", systemImage: "link")
@@ -772,7 +777,7 @@ struct TutorialView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Privacidad y Seguridad")
                             .font(.headline)
-                            .foregroundColor(.appPrimary)
+                            .foregroundColor(theme.accentColor)
 
                         VStack(alignment: .leading, spacing: 8) {
                             Label("Cifrado militar (AES-GCM) para la nube", systemImage: "lock.shield")
@@ -830,6 +835,7 @@ struct ConfigView: View {
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingHelpSheet = false
 
     @AppStorage("menuStyle") private var menuStyle: Int = 0 // 0 = Clásico, 1 = Moderno
@@ -886,7 +892,7 @@ struct ConfigView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Configuración", useBackIcon: useBackIcon)
 
             Form {
                 Section {
@@ -916,11 +922,13 @@ struct ConfigView: View {
                     // Toggle("Modo Liquid Glass", isOn: $liquidGlass)
                     
                     Toggle("Usar color de acento personalizado", isOn: $useCustomFavoriteColor)
+                        .onChange(of: useCustomFavoriteColor) { _ in ThemeManager.shared.refresh() }
                     if useCustomFavoriteColor {
                         ColorPicker("Color de acento global", selection: $selectedFavoriteColor, supportsOpacity: false)
                             .onChange(of: selectedFavoriteColor) { newColor in
                                 if let hex = newColor.toHex() {
                                     favoriteCustomColorHex = hex
+                                    ThemeManager.shared.refresh()
                                 }
                             }
                     }
@@ -1024,7 +1032,7 @@ struct ConfigView: View {
                         Button(action: { showingBackupSheet = true }) {
                             Label("Exportar Mis Datos (Backup)", systemImage: "square.and.arrow.up")
                         }
-                        .foregroundColor(authEnabled ? .appPrimary : .secondary)
+                        .foregroundColor(authEnabled ? theme.accentColor : .secondary)
 
                         Button(action: { showingImportAlert = true }) {
                             HStack {
@@ -1038,7 +1046,7 @@ struct ConfigView: View {
                                 }
                             }
                         }
-                        .foregroundColor(authEnabled ? .appPrimary : .secondary)
+                        .foregroundColor(authEnabled ? theme.accentColor : .secondary)
                         .disabled(isImporting)
                     }
                     .disabled(!authEnabled)
@@ -1059,7 +1067,7 @@ struct ConfigView: View {
                                     .foregroundColor(.green)
                             }
                         }
-                        .foregroundColor(.appPrimary)
+                        .foregroundColor(theme.accentColor)
                     }
                     .disabled(isResetting)
                 }
@@ -1118,7 +1126,7 @@ struct ConfigView: View {
                                 Label("Generar Archivo de Respaldo", systemImage: "doc.badge.plus")
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(Color.appPrimary)
+                                    .background(theme.accentColor)
                                     .foregroundColor(.white)
                                     .cornerRadius(10)
                             }
@@ -1284,16 +1292,17 @@ struct UnderConstructionView: View {
     let onMenuTap: () -> Void
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: title, useBackIcon: useBackIcon)
-            
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: title, useBackIcon: useBackIcon)
+
             VStack(spacing: 20) {
                 Spacer()
                 Image(systemName: "hammer.fill")
                     .font(.system(size: 60))
-                    .foregroundColor(.appPrimary)
+                    .foregroundColor(theme.accentColor)
                 Text("En Construcción")
                     .font(.title)
                     .fontWeight(.bold)
@@ -1324,6 +1333,7 @@ struct AddFavoriteOperationView: View {
     @Environment(\.presentationMode) var presentationMode
     let banks: [Bank]
     @ObservedObject var favoritesManager = FavoritesManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var searchText = ""
 
     private var commonUssdCodes: Set<String> {
@@ -1399,7 +1409,7 @@ struct AddFavoriteOperationView: View {
                                 }) {
                                     HStack(spacing: 15) {
                                         Image(systemName: entry.operation.iconName)
-                                            .foregroundColor(.appPrimary)
+                                            .foregroundColor(theme.accentColor)
                                             .frame(width: 25)
 
                                         VStack(alignment: .leading, spacing: 4) {
@@ -1415,7 +1425,7 @@ struct AddFavoriteOperationView: View {
 
                                         if isFavorite {
                                             Image(systemName: "star.fill")
-                                                .foregroundColor(.appPrimary)
+                                                .foregroundColor(theme.accentColor)
                                         } else {
                                             Image(systemName: "plus.circle")
                                                 .foregroundColor(.secondary)
@@ -1466,7 +1476,7 @@ struct AddFavoriteOperationView: View {
                                                 
                                                 if isFavorite {
                                                     Image(systemName: "star.fill")
-                                                        .foregroundColor(.appPrimary)
+                                                        .foregroundColor(theme.accentColor)
                                                 } else {
                                                     Image(systemName: "plus.circle")
                                                         .foregroundColor(.secondary)
@@ -1494,6 +1504,7 @@ struct NautaListView: View {
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingAddAccount = false
     @State private var accountToEdit: NautaAccount?
     @State private var accountToDelete: NautaAccount?
@@ -1501,7 +1512,7 @@ struct NautaListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas Nauta", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas Nauta", useBackIcon: useBackIcon)
             
             List {
                 if userData.nautaAccounts.isEmpty {
@@ -1523,7 +1534,7 @@ struct NautaListView: View {
                                     subtitle: account.type,
                                     value: account.account,
                                     iconName: "person.crop.circle",
-                                    backgroundColor: .appPrimary,
+                                    backgroundColor: theme.accentColor,
                                     onEdit: { accountToEdit = account },
                                     onDelete: { 
                                         accountToDelete = account
@@ -1547,7 +1558,7 @@ struct NautaListView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.appPrimary)
+                    .background(theme.accentColor)
                     .cornerRadius(12)
                     .padding()
             }
@@ -1577,6 +1588,7 @@ struct BankAccountsListView: View {
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingAddAccount = false
     @State private var accountToEdit: BankAccount?
     @State private var accountToDelete: BankAccount?
@@ -1585,7 +1597,7 @@ struct BankAccountsListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas de Banco", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas de Banco", useBackIcon: useBackIcon)
             
             ScrollView {
                 if userData.bankAccounts.isEmpty {
@@ -1626,7 +1638,7 @@ struct BankAccountsListView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.appPrimary)
+                    .background(theme.accentColor)
                     .cornerRadius(12)
                     .padding()
             }
@@ -1670,6 +1682,7 @@ struct BillsListView: View {
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingAddBill = false
     @State private var billToEdit: Bill?
     @State private var billToDelete: Bill?
@@ -1677,7 +1690,7 @@ struct BillsListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas de Servicios", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Cuentas de Servicios", useBackIcon: useBackIcon)
             
             List {
                 if userData.bills.isEmpty {
@@ -1699,7 +1712,7 @@ struct BillsListView: View {
                                     subtitle: bill.type.rawValue,
                                     value: bill.billNumber,
                                     iconName: bill.type.iconName,
-                                    backgroundColor: .appPrimary,
+                                    backgroundColor: theme.accentColor,
                                     onEdit: { billToEdit = bill },
                                     onDelete: { 
                                         billToDelete = bill
@@ -1723,7 +1736,7 @@ struct BillsListView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.appPrimary)
+                    .background(theme.accentColor)
                     .cornerRadius(12)
                     .padding()
             }
@@ -1753,6 +1766,7 @@ struct KeysListView: View {
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
     @ObservedObject var userData = UserDataManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingAddKey = false
     @State private var keyToEdit: UserKey?
     @State private var keyToDelete: UserKey?
@@ -1761,14 +1775,14 @@ struct KeysListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Mis Claves", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Mis Claves", useBackIcon: useBackIcon)
 
             if !authEnabled {
                 VStack(spacing: 20) {
                     Spacer()
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(.appPrimary)
+                        .foregroundColor(theme.accentColor)
                     Text("Sección protegida")
                         .font(.title3)
                         .fontWeight(.bold)
@@ -1805,7 +1819,7 @@ struct KeysListView: View {
                                         value: key.value,
                                         iconName: key.category.iconName,
                                         assetIconName: bank?.iconImg,
-                                        backgroundColor: bank?.themeColor ?? .appPrimary,
+                                        backgroundColor: bank?.themeColor ?? theme.accentColor,
                                         onEdit: { keyToEdit = key },
                                         onDelete: {
                                             keyToDelete = key
@@ -1829,7 +1843,7 @@ struct KeysListView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.appPrimary)
+                        .background(theme.accentColor)
                         .cornerRadius(12)
                         .padding()
                 }
@@ -1858,6 +1872,7 @@ struct KeysListView: View {
 struct PrefillSelectionView: View {
     let request: PrefillSelectionRequest
     let onSelect: (PrefillOption?) -> Void
+    @ObservedObject private var theme = ThemeManager.shared
 
     @State private var searchText = ""
 
@@ -1896,11 +1911,11 @@ struct PrefillSelectionView: View {
                             HStack(spacing: 14) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.appPrimary.opacity(0.15))
+                                        .fill(theme.accentColor.opacity(0.15))
                                         .frame(width: 42, height: 42)
                                     Image(systemName: option.iconName)
                                         .font(.system(size: 17, weight: .bold))
-                                        .foregroundColor(.appPrimary)
+                                        .foregroundColor(theme.accentColor)
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
@@ -1909,7 +1924,7 @@ struct PrefillSelectionView: View {
                                         .foregroundColor(.primary)
                                     Text(option.value)
                                         .font(.system(size: 14, weight: .medium, design: .monospaced))
-                                        .foregroundColor(.appPrimary)
+                                        .foregroundColor(theme.accentColor)
                                     if !option.detail.isEmpty {
                                         Text(option.detail)
                                             .font(.caption)
@@ -2296,6 +2311,7 @@ struct BankAccountDetailView: View {
     let account: BankAccount
     var onEdit: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -2309,7 +2325,7 @@ struct BankAccountDetailView: View {
                         Button(action: { presentationMode.wrappedValue.dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onEdit() } }) {
                             Image(systemName: "pencil.circle.fill")
                                 .font(.title2)
-                                .foregroundColor(.appPrimary)
+                                .foregroundColor(theme.accentColor)
                         }
                     }
                     if let onDelete = onDelete {
@@ -2413,6 +2429,7 @@ struct RemindersListView: View {
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
     @ObservedObject var reminderManager = ReminderManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var templateForNewReminder: ReminderTemplate?
     @State private var reminderToEdit: Reminder?
     @State private var reminderToDelete: Reminder?
@@ -2420,7 +2437,7 @@ struct RemindersListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Recordatorios", useBackIcon: useBackIcon)
+            TopNavBar(themeColor: theme.accentColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: "Recordatorios", useBackIcon: useBackIcon)
 
             List {
                 // One section per template — each can hold any number of reminders (two houses'
@@ -2488,7 +2505,7 @@ struct RemindersListView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.appPrimary)
+                    .background(theme.accentColor)
                     .cornerRadius(12)
                     .padding()
             }
@@ -2517,13 +2534,14 @@ struct RemindersListView: View {
 struct ReminderRow: View {
     let reminder: Reminder
     @ObservedObject var reminderManager = ReminderManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: reminder.iconName)
                 .foregroundColor(.white)
                 .frame(width: 36, height: 36)
-                .background(Color.appPrimary)
+                .background(theme.accentColor)
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
@@ -2684,6 +2702,7 @@ struct ReminderDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     let reminder: Reminder
     @ObservedObject var reminderManager = ReminderManager.shared
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showingDeleteAlert = false
 
     private var linkedInfo: (label: String, value: String)? {
@@ -2699,7 +2718,7 @@ struct ReminderDetailView: View {
                             .font(.system(size: 40))
                             .foregroundColor(.white)
                             .frame(width: 80, height: 80)
-                            .background(Color.appPrimary)
+                            .background(theme.accentColor)
                             .clipShape(Circle())
                         Text(reminder.title).font(.title2).fontWeight(.bold)
                         if !reminder.message.isEmpty {
@@ -2733,7 +2752,7 @@ struct ReminderDetailView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.appPrimary)
+                                .background(theme.accentColor)
                                 .cornerRadius(12)
                         }
                         .padding(.horizontal)

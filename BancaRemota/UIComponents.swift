@@ -89,7 +89,8 @@ struct TopNavBar: View {
 // MARK: - Connection Banner View
 struct ConnectionBannerView: View {
     @StateObject private var cellularMonitor = CellularMonitor.shared
-    
+    @ObservedObject private var theme = ThemeManager.shared
+
     var statusText: String {
         if !cellularMonitor.hasService {
             return "Sin Señal (USSD no funcionará)"
@@ -110,7 +111,7 @@ struct ConnectionBannerView: View {
         if !cellularMonitor.hasService { return .red }
         switch cellularMonitor.signalQuality {
         case 3: return .green
-        case 2: return .appPrimary
+        case 2: return theme.accentColor
         case 1: return .orange
         default: return .gray
         }
@@ -276,6 +277,7 @@ struct BankSelectionCard: View {
 // MARK: - Toast Banner
 struct ToastBannerView: View {
     @ObservedObject private var toastCenter = ToastCenter.shared
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         VStack {
@@ -287,7 +289,7 @@ struct ToastBannerView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .foregroundColor(toast.isWarning ? .orange : .appPrimary)
+                .foregroundColor(toast.isWarning ? .orange : theme.accentColor)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
