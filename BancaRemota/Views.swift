@@ -154,6 +154,7 @@ struct ModernTabView: View {
     @AppStorage("modernShowExchangeRateTab") private var showExchangeTab = false
     @State private var selectedTab: ModernTab = .favoritos
     @State private var favSelectedBank: Bank?
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -189,6 +190,7 @@ struct ModernTabView: View {
                 .tabItem { Label("Configuración", systemImage: "gearshape") }
                 .tag(ModernTab.config)
         }
+        .tint(theme.accentColor)
     }
 }
 
