@@ -214,10 +214,11 @@ struct BancosTabView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding()
+                .background(banks[selectedIndex].themeColor)
             }
             TabView(selection: $selectedIndex) {
                 ForEach(Array(banks.enumerated()), id: \.offset) { idx, bank in
-                    OperationsListView(bank: bank, allBanks: banks, onMenuTap: {}, showMenuBtn: false)
+                    OperationsListView(bank: bank, allBanks: banks, onMenuTap: {}, showMenuBtn: false, showBankIdentity: false)
                         .tag(idx)
                 }
             }
@@ -261,7 +262,7 @@ struct ToolsTabView: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: {}, showMenuBtn: false, title: "Herramientas")
+                    TopNavBar(themeColor: .appPrimary, onMenuTap: {}, showMenuBtn: false, title: "Herramientas")
                     ScrollView {
                         VStack(alignment: .leading, spacing: 25) {
                             MenuRow(iconColor: .appPrimary, imageName: nil, systemImageName: "doc.text.fill", title: "Cuentas de Servicios", isSelected: false) { selection = .servicios }
@@ -515,10 +516,11 @@ struct OperationsListView: View {
     let onMenuTap: () -> Void
     var showMenuBtn: Bool = true
     var useBackIcon: Bool = false
+    var showBankIdentity: Bool = true
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: bank.themeColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, bank: bank, useBackIcon: useBackIcon)
+            TopNavBar(themeColor: bank.themeColor, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, bank: showBankIdentity ? bank : nil, useBackIcon: useBackIcon)
             
             ScrollView {
                 VStack(spacing: 0) {
@@ -1292,7 +1294,7 @@ struct UnderConstructionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopNavBar(themeColor: Color(UIColor.systemBackground), onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: title, useBackIcon: useBackIcon)
+            TopNavBar(themeColor: .appPrimary, onMenuTap: onMenuTap, showMenuBtn: showMenuBtn, title: title, useBackIcon: useBackIcon)
             
             VStack(spacing: 20) {
                 Spacer()
