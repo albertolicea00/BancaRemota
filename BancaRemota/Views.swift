@@ -657,24 +657,24 @@ struct MenuRow: View {
                     Image(imageName)
                         .resizable()
                         .renderingMode(.template)
-                        .foregroundColor(isSelected ? .primary : iconColor)
+                        .foregroundColor(iconColor)
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 24, height: 24)
                         .cornerRadius(6)
                 } else if let systemName = systemImageName {
                     Image(systemName: systemName)
                         .font(.system(size: 20))
-                        .foregroundColor(isSelected ? .primary : iconColor)
+                        .foregroundColor(iconColor)
                         .frame(width: 24, height: 24)
                 } else {
                     Circle()
-                        .fill(isSelected ? .primary : iconColor)
+                        .fill(iconColor)
                         .frame(width: 24, height: 24)
                 }
-                
+
                 Text(title)
-                    .font(.system(size: 18))
-                    .foregroundColor(isSelected ? .primary : Color.gray.opacity(0.8))
+                    .font(.system(size: 18, weight: isSelected ? .bold : .regular))
+                    .foregroundColor(isSelected ? iconColor : Color.gray.opacity(0.8))
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -917,7 +917,7 @@ struct ConfigView: View {
                     
                     Toggle("Usar color de acento personalizado", isOn: $useCustomFavoriteColor)
                     if useCustomFavoriteColor {
-                        ColorPicker("Color de acento global", selection: $selectedFavoriteColor)
+                        ColorPicker("Color de acento global", selection: $selectedFavoriteColor, supportsOpacity: false)
                             .onChange(of: selectedFavoriteColor) { newColor in
                                 if let hex = newColor.toHex() {
                                     favoriteCustomColorHex = hex
