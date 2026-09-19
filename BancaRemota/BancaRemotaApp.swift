@@ -5,8 +5,6 @@ import SwiftUI
 struct BancaRemotaApp: App {
     @AppStorage("darkModePreference") private var darkModePreference: Int = 0
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("useCustomFavoriteColor") private var useCustomFavoriteColor = true
-    @AppStorage("favoriteCustomColorHex") private var favoriteCustomColorHex = "B38B4D"
     @StateObject private var authManager = AuthManager.shared
     
     var body: some Scene {
@@ -14,7 +12,6 @@ struct BancaRemotaApp: App {
             ZStack {
                 MainView()
                     .preferredColorScheme(darkModePreference == 1 ? .light : (darkModePreference == 2 ? .dark : nil))
-                    .id("\(useCustomFavoriteColor)_\(favoriteCustomColorHex)")
                 
                 if !authManager.isAuthenticated {
                     Color(UIColor.systemBackground).ignoresSafeArea()
