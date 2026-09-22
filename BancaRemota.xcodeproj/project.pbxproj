@@ -15,6 +15,8 @@
 		A0E333CCA83D12434E70DC79 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8288E7EAF3D378E1A54FD8F /* Models.swift */; };
 		DCB896D0459C2B9459EE361B /* codes.json in Resources */ = {isa = PBXBuildFile; fileRef = 9D93F0E9484A25EC4DD2CD66 /* codes.json */; };
 		E938FE5B48B9C482DCCBFEB1 /* BancaRemota.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8F0E8B9210A67B23516CAF2B /* BancaRemota.xcassets */; };
+		B10000000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* Localizable.xcstrings */; };
+		B10000000000000000000002 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* InfoPlist.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +29,8 @@
 		D31E4A766212D77A2FB4F847 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		D5A535BF9225C8F2840D0C42 /* BancaRemota.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BancaRemota.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8288E7EAF3D378E1A54FD8F /* Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A10000000000000000000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A10000000000000000000002 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
