@@ -135,7 +135,7 @@ class AuthManager: ObservableObject {
         
         let context = LAContext()
         var error: NSError?
-        let reason = "Autentícate para acceder a Banca Remota"
+        let reason = NSLocalizedString("Autentícate para acceder a Banca Remota", comment: "")
         
         let policy: LAPolicy = .deviceOwnerAuthentication
         
@@ -494,7 +494,7 @@ class OperationRunner: ObservableObject {
         ClipboardService.shared.copySensitive(key.value)
 
         if mode == .copyAndNotify {
-            ToastCenter.shared.show("Clave de \(bankName) copiada al portapapeles")
+            ToastCenter.shared.show(String(format: NSLocalizedString("Clave de %@ copiada al portapapeles", comment: ""), bankName))
         }
     }
 
@@ -513,7 +513,7 @@ class OperationRunner: ObservableObject {
             .filter { $0.type == type }
             .map { PrefillOption(id: $0.id, label: $0.label, value: $0.billNumber, detail: $0.group, iconName: type.iconName) }
 
-        return requestSelection(title: "Pagar \(type.rawValue)", options: options, operation: operation, modeKey: "billCopyMode")
+        return requestSelection(title: String(format: NSLocalizedString("Pagar %@", comment: ""), type.localizedName), options: options, operation: operation, modeKey: "billCopyMode")
     }
 
     private func requestNautaSelection(operation: BankOperation) -> Bool {
@@ -558,7 +558,7 @@ class OperationRunner: ObservableObject {
                 // when it is something they can act on, then dial anyway.
                 if wasDenied && mode == .copyAndNotify {
                     ToastCenter.shared.show(
-                        "Sin acceso a Contactos. Actívalo en Ajustes › Banca Remota.",
+                        NSLocalizedString("Sin acceso a Contactos. Actívalo en Ajustes › Banca Remota.", comment: ""),
                         iconName: "exclamationmark.triangle.fill",
                         isWarning: true
                     )
@@ -587,7 +587,7 @@ class OperationRunner: ObservableObject {
         if let option = option {
             ClipboardService.shared.copySensitive(option.value)
             if mode(forKey: request.modeKey) == .copyAndNotify {
-                ToastCenter.shared.show("Copiado al portapapeles: \(option.label)")
+                ToastCenter.shared.show(String(format: NSLocalizedString("Copiado al portapapeles: %@", comment: ""), option.label))
             }
         }
 
@@ -850,8 +850,8 @@ class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDeleg
             UNNotificationCategory(
                 identifier: Self.categoryId,
                 actions: [
-                    UNNotificationAction(identifier: Self.markDoneAction, title: "Marcar como hecho", options: []),
-                    UNNotificationAction(identifier: Self.snoozeAction, title: "Posponer 1 día", options: []),
+                    UNNotificationAction(identifier: Self.markDoneAction, title: NSLocalizedString("Marcar como hecho", comment: ""), options: []),
+                    UNNotificationAction(identifier: Self.snoozeAction, title: NSLocalizedString("Posponer 1 día", comment: ""), options: []),
                 ],
                 intentIdentifiers: [],
                 options: []
@@ -921,7 +921,7 @@ class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDeleg
     func execute(_ reminder: Reminder) {
         if let info = linkedInfo(for: reminder) {
             ClipboardService.shared.copySensitive(info.value)
-            ToastCenter.shared.show("Copiado al portapapeles: \(info.label)")
+            ToastCenter.shared.show(String(format: NSLocalizedString("Copiado al portapapeles: %@", comment: ""), info.label))
         }
         guard let code = reminder.ussdCode else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {

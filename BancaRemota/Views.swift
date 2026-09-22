@@ -337,9 +337,9 @@ struct BankSelectionView: View {
         var seenCommonCodes = Set<String>()
         return favoritesManager.favoriteOperations.filter { fav in
             guard banks.contains(where: { $0.id == fav.bankId }) else { return false }
-            guard commonUssdCodes.contains(fav.operation.ussdCode) else { return true }
-            guard !seenCommonCodes.contains(fav.operation.ussdCode) else { return false }
-            seenCommonCodes.insert(fav.operation.ussdCode)
+            guard commonUssdCodes.contains(fav.liveOperation.ussdCode) else { return true }
+            guard !seenCommonCodes.contains(fav.liveOperation.ussdCode) else { return false }
+            seenCommonCodes.insert(fav.liveOperation.ussdCode)
             return true
         }
     }
@@ -444,11 +444,11 @@ struct BankSelectionView: View {
                                 ForEach(displayedFavorites) { fav in
                                     let cardThemeColor = theme.accentColor
                                     let textColor = Color.white
-                                    let isCommon = commonUssdCodes.contains(fav.operation.ussdCode)
+                                    let isCommon = commonUssdCodes.contains(fav.liveOperation.ussdCode)
                                     let favBank = banks.first(where: { $0.id == fav.bankId })
                                     let bankBadge: String? = isCommon ? nil : favBank?.shortName
-                                    OperationCard(operation: fav.operation, themeColor: cardThemeColor, textColor: textColor, badge: bankBadge, badgeColor: favBank?.themeColor, badgeTextColor: favBank?.textColor) {
-                                        OperationRunner.shared.run(fav.operation, bankId: fav.bankId)
+                                    OperationCard(operation: fav.liveOperation, themeColor: cardThemeColor, textColor: textColor, badge: bankBadge, badgeColor: favBank?.themeColor, badgeTextColor: favBank?.textColor) {
+                                        OperationRunner.shared.run(fav.liveOperation, bankId: fav.bankId)
                                     }
                                     .onDrag {
                                         self.draggedItem = fav
@@ -633,11 +633,11 @@ struct HelpSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.headline)
                 .foregroundColor(theme.accentColor)
-            
-            Text(content)
+
+            Text(LocalizedStringKey(content))
                 .font(.body)
                 .foregroundColor(.primary.opacity(0.8))
                 .lineSpacing(4)
@@ -678,7 +678,7 @@ struct MenuRow: View {
                         .frame(width: 24, height: 24)
                 }
 
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.system(size: 18, weight: isSelected ? .bold : .regular))
                     .foregroundColor(isSelected ? iconColor : Color.gray.opacity(0.8))
             }
@@ -957,7 +957,7 @@ struct ConfigView: View {
                 Section(header: Text("Autenticación en el banco"), footer: Text("Al ejecutar una operación de autenticación, la app copia al portapapeles la clave especial de ese banco (categorías «PIN BPA», «PIN BANDEC» y «PIN BM» en Mis Claves) para que la pegues cuando el USSD la pida. La copia se borra sola a los 2 minutos y no se sincroniza con otros dispositivos.")) {
                     Picker("Clave al autenticarse", selection: $authKeyCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
-                            Text(mode.directLabel).tag(mode.rawValue)
+                            Text(LocalizedStringKey(mode.directLabel)).tag(mode.rawValue)
                         }
                     }
                 }
@@ -965,7 +965,7 @@ struct ConfigView: View {
                 Section(header: Text("Pago de facturas"), footer: Text("Al pagar electricidad, teléfono, agua o gas, la app lista tus cuentas de servicio guardadas de ese tipo para copiar el número al portapapeles antes de marcar. Siempre puedes elegir «Ninguno» y marcar sin copiar.")) {
                     Picker("Cuentas guardadas", selection: $billCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
-                            Text(mode.pickerLabel).tag(mode.rawValue)
+                            Text(LocalizedStringKey(mode.pickerLabel)).tag(mode.rawValue)
                         }
                     }
                 }
@@ -973,7 +973,7 @@ struct ConfigView: View {
                 Section(header: Text("Recarga Nauta"), footer: Text("Al recargar Nauta, la app lista tus cuentas Nauta guardadas para copiar el usuario al portapapeles antes de marcar.")) {
                     Picker("Cuentas guardadas", selection: $nautaCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
-                            Text(mode.pickerLabel).tag(mode.rawValue)
+                            Text(LocalizedStringKey(mode.pickerLabel)).tag(mode.rawValue)
                         }
                     }
                 }
@@ -981,7 +981,7 @@ struct ConfigView: View {
                 Section(header: Text("Transferencias"), footer: Text("Al transferir, la app lista tus tarjetas guardadas para copiar el número al portapapeles antes de marcar.")) {
                     Picker("Tarjetas guardadas", selection: $cardCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
-                            Text(mode.pickerLabel).tag(mode.rawValue)
+                            Text(LocalizedStringKey(mode.pickerLabel)).tag(mode.rawValue)
                         }
                     }
                 }
@@ -989,7 +989,7 @@ struct ConfigView: View {
                 Section(header: Text("Recarga de móvil"), footer: Text("Al recargar un móvil, la app lista tus contactos dentro de la propia app, con buscador, para copiar el número antes de marcar. Requiere permiso de Contactos; se leen solo en ese momento, no se guardan ni se envían a ningún sitio.")) {
                     Picker("Contactos del teléfono", selection: $contactCopyMode) {
                         ForEach(PrefillCopyMode.allCases) { mode in
-                            Text(mode.pickerLabel).tag(mode.rawValue)
+                            Text(LocalizedStringKey(mode.pickerLabel)).tag(mode.rawValue)
                         }
                     }
                 }
@@ -2011,9 +2011,9 @@ struct EmptyStateView: View {
             Image(systemName: iconName)
                 .font(.system(size: 60))
                 .foregroundColor(.gray.opacity(0.3))
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.headline)
-            Text(message)
+            Text(LocalizedStringKey(message))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -2156,7 +2156,7 @@ struct AddBillView: View {
                         .keyboardType(.numberPad)
                     Picker("Tipo de Servicio", selection: $type) {
                         ForEach(BillType.allCases, id: \.self) { type in
-                            Text(type.rawValue).tag(type)
+                            Text(LocalizedStringKey(type.rawValue)).tag(type)
                         }
                     }
                 }
@@ -2259,7 +2259,7 @@ struct AddKeyView: View {
 
                     Picker("Categoría", selection: $category) {
                         ForEach(availableCategories, id: \.self) { cat in
-                            Text(cat.displayName).tag(cat)
+                            Text(LocalizedStringKey(cat.displayName)).tag(cat)
                         }
                     }
                     .onChange(of: category) { newCategory in
@@ -2395,7 +2395,8 @@ struct DetailRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased())
+            Text(LocalizedStringKey(label))
+                .textCase(.uppercase)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.secondary)
             
@@ -2657,7 +2658,7 @@ struct AddReminderView: View {
                     }
                 }
             }
-            .navigationTitle(reminderToEdit == nil ? template.title : "Editar Recordatorio")
+            .navigationTitle(reminderToEdit == nil ? template.title : NSLocalizedString("Editar Recordatorio", comment: ""))
             .navigationBarItems(
                 leading: Button("Cancelar") { presentationMode.wrappedValue.dismiss() },
                 trailing: Button("Guardar") { save() }

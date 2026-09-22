@@ -25,21 +25,144 @@ struct Bank: Codable, Identifiable {
     }
 }
 
-struct OperationCategory: Codable, Identifiable {
-    var id: String { name }
-    let name: String
-    let operations: [BankOperation]
+// MARK: - Localized Text for Multilingual Support
+struct LocalizedText: Codable, Equatable {
+    var es: String
+    var en: String
+
+    var localized: String {
+        let pref = Locale.preferredLanguages.first ?? Locale.current.identifier
+        if pref.hasPrefix("en") {
+            return en.isEmpty ? es : en
+        }
+        return es
+    }
+
+    init(es: String, en: String = "") {
+        self.es = es
+        self.en = en.isEmpty ? es : en
+    }
+
+    init(from decoder: Decoder) throws {
+        if let container = try? decoder.container(keyedBy: CodingKeys.self) {
+            let esVal = try? container.decode(String.self, forKey: .es)
+            let enVal = try? container.decode(String.self, forKey: .en)
+            self.es = esVal ?? ""
+            self.en = enVal ?? esVal ?? ""
+        } else if let singleVal = try? decoder.singleValueContainer().decode(String.self) {
+            self.es = singleVal
+            self.en = singleVal
+        } else {
+            self.es = ""
+            self.en = ""
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case es, en
+    }
 }
 
-struct BankOperation: Codable, Identifiable {
+struct OperationCategory: Codable, Identifiable {
+    var id: String { title.es }
+    let title: LocalizedText
+    let operations: [BankOperation]
+
+    var name: String { title.localized }
+
+    enum CodingKeys: String, CodingKey {
+        case title, name, operations
+    }
+
+    init(title: LocalizedText, operations: [BankOperation]) {
+        self.title = title
+        self.operations = operations
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        operations = try container.decode([BankOperation].self, forKey: .operations)
+        if let t = try? container.decode(LocalizedText.self, forKey: .title) {
+            title = t
+        } else if let n = try? container.decode(LocalizedText.self, forKey: .name) {
+            title = n
+        } else {
+            title = LocalizedText(es: "", en: "")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(title, forKey: .title)
+        try container.encode(operations, forKey: .operations)
+    }
+}
+
+struct BankOperation: Codable, Identifiable, Equatable {
     let id: String
-    let name: String
-    let description: String
+    let title: LocalizedText
+    let details: LocalizedText
     let iconName: String
     let ussdCode: String
     var isLogin: Bool?
     var isDefaultFavorite: Bool?
     var prefill: String?
+
+    var name: String { title.localized }
+    var description: String { details.localized }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, details, name, description, iconName, ussdCode, isLogin, isDefaultFavorite, prefill
+    }
+
+    init(id: String, title: LocalizedText, details: LocalizedText, iconName: String, ussdCode: String, isLogin: Bool? = nil, isDefaultFavorite: Bool? = nil, prefill: String? = nil) {
+        self.id = id
+        self.title = title
+        self.details = details
+        self.iconName = iconName
+        self.ussdCode = ussdCode
+        self.isLogin = isLogin
+        self.isDefaultFavorite = isDefaultFavorite
+        self.prefill = prefill
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        iconName = try container.decode(String.self, forKey: .iconName)
+        ussdCode = try container.decode(String.self, forKey: .ussdCode)
+        isLogin = try container.decodeIfPresent(Bool.self, forKey: .isLogin)
+        isDefaultFavorite = try container.decodeIfPresent(Bool.self, forKey: .isDefaultFavorite)
+        prefill = try container.decodeIfPresent(String.self, forKey: .prefill)
+
+        if let t = try? container.decode(LocalizedText.self, forKey: .title) {
+            title = t
+        } else if let n = try? container.decode(LocalizedText.self, forKey: .name) {
+            title = n
+        } else {
+            title = LocalizedText(es: "", en: "")
+        }
+
+        if let d = try? container.decode(LocalizedText.self, forKey: .details) {
+            details = d
+        } else if let desc = try? container.decode(LocalizedText.self, forKey: .description) {
+            details = desc
+        } else {
+            details = LocalizedText(es: "", en: "")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(details, forKey: .details)
+        try container.encode(iconName, forKey: .iconName)
+        try container.encode(ussdCode, forKey: .ussdCode)
+        try container.encodeIfPresent(isLogin, forKey: .isLogin)
+        try container.encodeIfPresent(isDefaultFavorite, forKey: .isDefaultFavorite)
+        try container.encodeIfPresent(prefill, forKey: .prefill)
+    }
 }
 
 // MARK: - Reactive Theme Manager
@@ -121,8 +244,17 @@ extension Color {
 struct FavoriteOperation: Codable, Identifiable, Equatable {
     var id: String { "\(bankId)_\(operation.id)" }
     let bankId: String
+    /// Snapshot encoded when the favorite was added — may be stale (old wording, old
+    /// USSD code, or predate multi-language support). Display and dialing should use
+    /// `liveOperation` instead, which re-resolves against the current codes.json.
     let operation: BankOperation
-    
+
+    /// Current definition of this operation, falling back to the stored snapshot if it
+    /// was removed from codes.json since being favorited.
+    var liveOperation: BankOperation {
+        DataService.shared.operation(id: operation.id, bankId: bankId) ?? operation
+    }
+
     static func == (lhs: FavoriteOperation, rhs: FavoriteOperation) -> Bool {
         lhs.id == rhs.id
     }
@@ -212,6 +344,10 @@ enum BillType: String, Codable, CaseIterable {
         case .telephone: return "phone"
         }
     }
+
+    var localizedName: String {
+        NSLocalizedString(rawValue, comment: "")
+    }
 }
 
 // MARK: - User Key (Passwords/PINs)
@@ -285,10 +421,10 @@ enum KeyCategory: String, Codable, CaseIterable {
         let bankName = bankId?.uppercased() ?? rawValue
 
         if !value.allSatisfy({ $0.isASCII && $0.isNumber }) {
-            return "El PIN de \(bankName) normalmente es solo numérico."
+            return String(format: NSLocalizedString("El PIN de %@ normalmente es solo numérico.", comment: ""), bankName)
         }
         if value.count > maxPinLength {
-            return "El PIN de \(bankName) normalmente tiene \(maxPinLength) dígitos como máximo."
+            return String(format: NSLocalizedString("El PIN de %@ normalmente tiene %lld dígitos como máximo.", comment: ""), bankName, maxPinLength)
         }
         return nil
     }
@@ -305,13 +441,15 @@ enum ReminderRecurrenceKind: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var label: String {
+        let key: String
         switch self {
-        case .none: return "Una vez"
-        case .daily: return "Cada día"
-        case .weekly: return "Cada semana"
-        case .monthly: return "Cada mes"
-        case .custom: return "Cada N días"
+        case .none: key = "Una vez"
+        case .daily: key = "Cada día"
+        case .weekly: key = "Cada semana"
+        case .monthly: key = "Cada mes"
+        case .custom: key = "Cada N días"
         }
+        return NSLocalizedString(key, comment: "")
     }
 }
 
@@ -347,14 +485,30 @@ struct Reminder: Codable, Identifiable, Equatable {
 /// and, when `linkType != .none`, lets the user pick which saved bill/Nauta/card it's about.
 struct ReminderTemplate: Identifiable {
     let id: String
-    let title: String
-    let message: String
+    private let rawTitle: String
+    private let rawMessage: String
     let iconName: String
     let ussdCode: String?
     let linkType: ReminderLinkType
     /// Narrows the bill picker to this type when `linkType == .bill`. Nil otherwise.
     let billType: BillType?
     let defaultRecurrence: ReminderRecurrenceKind
+
+    /// Localized at access time so every consumer (Label, navigationTitle, string
+    /// interpolation) gets translated text without needing a LocalizedStringKey wrapper.
+    var title: String { NSLocalizedString(rawTitle, comment: "") }
+    var message: String { rawMessage.isEmpty ? "" : NSLocalizedString(rawMessage, comment: "") }
+
+    init(id: String, title: String, message: String, iconName: String, ussdCode: String?, linkType: ReminderLinkType, billType: BillType?, defaultRecurrence: ReminderRecurrenceKind) {
+        self.id = id
+        self.rawTitle = title
+        self.rawMessage = message
+        self.iconName = iconName
+        self.ussdCode = ussdCode
+        self.linkType = linkType
+        self.billType = billType
+        self.defaultRecurrence = defaultRecurrence
+    }
 
     static let quickTemplates: [ReminderTemplate] = [
         ReminderTemplate(id: "luz", title: "Pagar Luz", message: "Recuerda pagar la factura de electricidad.", iconName: "bolt.fill", ussdCode: "*444*41#", linkType: .bill, billType: .electricity, defaultRecurrence: .monthly),
@@ -397,3 +551,4 @@ enum PrefillCopyMode: Int, CaseIterable, Identifiable {
         }
     }
 }
+

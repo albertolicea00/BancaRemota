@@ -48,13 +48,13 @@ struct TopNavBar: View {
                             .frame(width: 40, height: 40)
                     }
                 } else if isHome {
-                    Text(title ?? "Favoritos")
+                    Text(LocalizedStringKey(title ?? "Favoritos"))
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(contentColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 } else if let title = title {
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(contentColor)
                         .lineLimit(1)
@@ -93,17 +93,17 @@ struct ConnectionBannerView: View {
 
     var statusText: String {
         if !cellularMonitor.hasService {
-            return "Sin Señal (USSD no funcionará)"
+            return NSLocalizedString("Sin Señal (USSD no funcionará)", comment: "")
         }
         switch cellularMonitor.signalQuality {
         case 3:
-            return "Señal Óptima (\(cellularMonitor.networkType))"
+            return String(format: NSLocalizedString("Señal Óptima (%@)", comment: ""), cellularMonitor.networkType)
         case 2:
-            return "Señal Buena (\(cellularMonitor.networkType))"
+            return String(format: NSLocalizedString("Señal Buena (%@)", comment: ""), cellularMonitor.networkType)
         case 1:
-            return "Señal Débil (Riesgo de fallo)"
+            return NSLocalizedString("Señal Débil (Riesgo de fallo)", comment: "")
         default:
-            return "Buscando Red..."
+            return NSLocalizedString("Buscando Red...", comment: "")
         }
     }
     
@@ -220,10 +220,10 @@ struct ToolListRow: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.primary)
-                    Text(description)
+                    Text(LocalizedStringKey(description))
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.leading)
@@ -322,7 +322,7 @@ struct MenuShortcutCard: View {
                     .frame(height: 30)
                     .foregroundColor(.primary)
                 
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
@@ -420,12 +420,12 @@ struct DataCard: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.primary)
                     
                     if let subtitle = subtitle {
-                        Text(subtitle)
+                        Text(LocalizedStringKey(subtitle))
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
@@ -538,7 +538,7 @@ struct WalletCard: View {
                     Text(account.label)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white.opacity(0.8))
-                    Text(account.group.isEmpty ? "Banco" : account.group)
+                    Text(account.group.isEmpty ? NSLocalizedString("Banco", comment: "") : account.group)
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)

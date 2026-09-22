@@ -70,6 +70,8 @@
 				3C3CB2211CAFC00711DA47DA /* UIComponents.swift */,
 				2A0A5624615FFEDF72CB99DD /* Views.swift */,
 				9D93F0E9484A25EC4DD2CD66 /* codes.json */,
+				A10000000000000000000001 /* Localizable.xcstrings */,
+				A10000000000000000000002 /* InfoPlist.xcstrings */,
 			);
 			path = BancaRemota;
 			sourceTree = "<group>";
@@ -124,10 +126,11 @@
 			};
 			buildConfigurationList = D1C0B7CD934D628EE944B2B9 /* Build configuration list for PBXProject "BancaRemota" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = "es-419";
+			developmentRegion = es;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				"es-419",
+				es,
+				en,
 			);
 			mainGroup = C8CAAB1E808171E47D42A180;
 			productRefGroup = 533A0B61A9DCBE6FAEF9A883 /* Products */;
@@ -146,6 +149,8 @@
 			files = (
 				DCB896D0459C2B9459EE361B /* codes.json in Resources */,
 				E938FE5B48B9C482DCCBFEB1 /* BancaRemota.xcassets in Resources */,
+				B10000000000000000000001 /* Localizable.xcstrings in Resources */,
+				B10000000000000000000002 /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,6 +209,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_LANGUAGE = es;
 				DEVELOPMENT_TEAM = 7W3D3JL6PV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -270,6 +276,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_LANGUAGE = es;
 				DEVELOPMENT_TEAM = 7W3D3JL6PV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -300,6 +307,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_LANGUAGE = es;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Banca Remota";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -339,6 +347,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_LANGUAGE = es;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Banca Remota";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
