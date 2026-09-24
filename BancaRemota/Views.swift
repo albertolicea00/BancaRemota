@@ -742,29 +742,6 @@ struct TutorialView: View {
 
                     HelpSection(title: "Nuestro Compromiso", content: "Esta aplicación se mantendrá ligera, sencilla y rápida. El objetivo es que funcione en todos los dispositivos Apple, incluso en los más antiguos, sin requerir actualizaciones de hardware para acceder a tu banco.")
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Contacto y Colaboración")
-                            .font(.headline)
-                            .foregroundColor(theme.accentColor)
-
-                        Link(destination: URL(string: "https://www.linkedin.com/in/albertolicea00")!) {
-                            Label("Alberto Licea (Desarrollador)", systemImage: "person.circle")
-                        }
-                        .foregroundColor(.blue)
-
-                        Link(destination: URL(string: "https://github.com/albertolicea00/BancaRemota")!) {
-                            Label("Código Fuente en GitHub", systemImage: "terminal")
-                        }
-                        .foregroundColor(.blue)
-                        .padding(.top, 2)
-
-                        Text("Puedes colaborar sugiriendo mejoras, reportando errores o aportando actualizaciones de los códigos USSD.")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding(.top, 2)
-
-                        Divider().padding(.top, 5)
-                    }
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Créditos")
@@ -822,10 +799,15 @@ struct TutorialView: View {
 
                     Spacer()
 
-                    Text("Versión \(AppVersion) (\(AppBuild))")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 4) {
+                        Text("Versión \(AppVersion) (\(AppBuild))")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Link("by @albertolicea00", destination: URL(string: "https://github.com/albertolicea00")!)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(25)
             }
@@ -1092,9 +1074,21 @@ struct ConfigView: View {
                         Label("Exportar BBDD de Códigos USSD", systemImage: "square.and.arrow.up")
                     }
                     .foregroundColor(theme.accentColor)
+
+                    Link(destination: URL(string: "https://github.com/albertolicea00/BancaRemota")!) {
+                        Label("Código Fuente en GitHub", systemImage: "terminal")
+                    }
+                    .foregroundColor(theme.accentColor)
                 }
 
-                Section(footer: Text("Versión \(AppVersion) (\(AppBuild))")
+                Section(footer:
+                    VStack(spacing: 4) {
+                        Text("Versión \(AppVersion) (\(AppBuild))")
+                        Link("by @albertolicea00", destination: URL(string: "https://github.com/albertolicea00")!)
+                            .foregroundColor(.gray)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.gray)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
                 ) {}
